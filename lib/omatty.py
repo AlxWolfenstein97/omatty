@@ -666,9 +666,10 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
     muted = _hex_rgb(colors["muted"])
     green = _hex_rgb(colors["green"])
 
-    # Fixed "monitor" matching omarchy-menu-images thumbnail sweet spot.
-    w, h = 1536, 950
-    pad_x, header_h, footer_h, frame = 48, 96, 40, 12
+    # Match omarchy-menu-images thumbnail size (1536×864). Keep the VT pane
+    # inside ~8% side margins so the 768×475 Style tile crop does not shave it.
+    w, h = 1536, 864
+    pad_x, header_h, footer_h, frame = 120, 72, 36, 10
 
     # Constant zoom so glyph size alone decides how much fits — same as a
     # real framebuffer. (Shrinking scale for big faces would fit *more*
@@ -699,29 +700,28 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
         width=2,
     )
 
-    user = os.environ.get("USER", "alex")
     # Plenty of full-width material so small fonts look roomy and big fonts
     # clip mid-line / mid-session — same joke as a real 45x11 console.
+    # Keep prompts generic (no real username / kernel / home paths).
     ruler = "".join(str(i % 10) for i in range(160))
     alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     lower = "abcdefghijklmnopqrstuvwxyz"
-    junk = "Documents  Downloads  Work  Music  Pictures  Videos  .config  .cache  "
+    junk = "Documents  Downloads  Projects  Music  Pictures  Videos  .config  .cache  "
     lines = [
-        (f"{user}@omarchy ~", green),
+        ("user@omarchy ~", green),
         ("> ls -la", fg),
         ((junk * 4).rstrip(), fg),
-        (f"{user}@omarchy ~", green),
-        ("> echo hello TTY && uname -a", fg),
+        ("user@omarchy ~", green),
+        ("> echo hello TTY", fg),
         ("hello TTY", fg),
-        ("Linux omarchy 6.17.0-arch1-1 #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux", fg),
-        (f"{user}@omarchy ~/Work/tries/very-long-project-name", green),
+        ("user@omarchy ~/Projects/very-long-project-name", green),
         ("> ", fg),
         ("", fg),
         (ruler, muted),
         (alphabet * 3, fg),
         (lower * 3, fg),
         ("0123456789  +-*/=  ()[]{}  box:+-|/=  arrows:^v<>  " * 3, muted),
-        (f"{user}@omarchy ~/Work", green),
+        ("user@omarchy ~", green),
         ("> setfont; # bigger face = fewer cells on the same glass", fg),
     ]
 
@@ -746,17 +746,17 @@ def render_missing_mockup(font_id: str, dest: Path) -> Path:
     fg = _hex_rgb(colors["fg"])
     accent = _hex_rgb(colors["accent"])
     muted = _hex_rgb(colors["muted"])
-    w, h = 1536, 950
+    w, h = 1536, 864
     img = Image.new("RGB", (w, h), bg)
     draw = ImageDraw.Draw(img)
     ui = try_ui_font(28)
     ui_sm = try_ui_font(20)
-    draw.text((48, 48), f"TTY · {item.get('label', font_id)}", font=ui, fill=accent)
-    draw.text((48, 100), item.get("blurb", ""), font=ui_sm, fill=muted)
+    draw.text((120, 48), f"TTY · {item.get('label', font_id)}", font=ui, fill=accent)
+    draw.text((120, 100), item.get("blurb", ""), font=ui_sm, fill=muted)
     pkg = item.get("pkg") or "terminus-font"
-    draw.text((48, 280), "Not installed on this system yet.", font=ui, fill=fg)
-    draw.text((48, 340), f"Pick it and OmaTTY will install {pkg},", font=ui_sm, fill=fg)
-    draw.text((48, 380), "then set FONT= in /etc/vconsole.conf.", font=ui_sm, fill=fg)
+    draw.text((120, 280), "Not installed on this system yet.", font=ui, fill=fg)
+    draw.text((120, 340), f"Pick it and OmaTTY will install {pkg},", font=ui_sm, fill=fg)
+    draw.text((120, 380), "then set FONT= in /etc/vconsole.conf.", font=ui_sm, fill=fg)
     save_png_atomic(img, dest)
     return dest
 

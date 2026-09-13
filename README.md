@@ -34,7 +34,7 @@ machine (`kbd`, `terminus-font`); themes are not asked for font assets.
 | Zero extra theme assets | No per-theme font previews. Glyphs come from installed PSF files. |
 | Extreme compatibility | Works beside any Omarchy theme; pairs with [OmaVT](https://github.com/AlxWolfenstein97/omavt) for palette. |
 | Closest-to-real mockups | Actual PSF bitmaps in a fake VT frame — still not a live `/dev/tty` capture. |
-| Carousel-safe | Mockups match the Style tile aspect (~768×475) so edge chrome is not cropped. |
+| Carousel-safe | Mockups are 1536×864 (menu-images thumbnail size) with ~8% side inset so the 768×475 tile crop does not shave the subject. |
 | Curated, not exhaustive | archinstall lists every console font; Style keeps a Terminus-first set so the picker stays usable. |
 
 ## What you get
