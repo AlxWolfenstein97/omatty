@@ -23,6 +23,20 @@ OmaTTY keeps a curated Terminus-first set, renders each with the **actual
 bitmap glyphs**, and applies with sudo the same way Style → Unlock / Boot
 Themes do.
 
+## Goals (and honest limits)
+
+These Style plugins extend Omarchy’s theme system **without requiring theme
+authors — or you — to ship anything extra**. Fonts come from packages on the
+machine (`kbd`, `terminus-font`); themes are not asked for font assets.
+
+| Goal | What that means here |
+|------|----------------------|
+| Zero extra theme assets | No per-theme font previews. Glyphs come from installed PSF files. |
+| Extreme compatibility | Works beside any Omarchy theme; pairs with [OmaVT](https://github.com/AlxWolfenstein97/omavt) for palette. |
+| Closest-to-real mockups | Actual PSF bitmaps in a fake VT frame — still not a live `/dev/tty` capture. |
+| Carousel-safe | Mockups match the Style tile aspect (~768×475) so edge chrome is not cropped. |
+| Curated, not exhaustive | archinstall lists every console font; Style keeps a Terminus-first set so the picker stays usable. |
+
 ## What you get
 
 - **Style → TTY Fonts** — labelled image picker (`omarchy-menu-images`).
@@ -130,6 +144,7 @@ bash ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/check.sh
 ## Credits
 
 - Sibling Style plugins: [OmaBoot](https://github.com/AlxWolfenstein97/omaboot),
+  [OmaVT](https://github.com/AlxWolfenstein97/omavt),
   [OmaOBS](https://github.com/AlxWolfenstein97/omaobs).
 - [archinstall](https://github.com/archlinux/archinstall) Console font menu /
   `terminus-font` auto-strap.

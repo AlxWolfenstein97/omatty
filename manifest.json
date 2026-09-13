@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.alxwolfenstein97.omatty",
   "name": "OmaTTY",
-  "version": "1.0.3",
+  "version": "1.0.1",
   "author": "AlxWolfenstein97",
   "license": "MIT",
   "description": "Style menu picker with real console-font mockups (Terminus + stock). Sets FONT= in vconsole.conf (sudo) and ships a TTY-safe starship profile so prompt glyphs do not tofu.",

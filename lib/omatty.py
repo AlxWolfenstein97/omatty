@@ -667,7 +667,7 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
     green = _hex_rgb(colors["green"])
 
     # Fixed "monitor" matching omarchy-menu-images thumbnail sweet spot.
-    w, h = 1536, 864
+    w, h = 1536, 950
     pad_x, header_h, footer_h, frame = 48, 96, 40, 12
 
     # Constant zoom so glyph size alone decides how much fits — same as a
@@ -746,7 +746,7 @@ def render_missing_mockup(font_id: str, dest: Path) -> Path:
     fg = _hex_rgb(colors["fg"])
     accent = _hex_rgb(colors["accent"])
     muted = _hex_rgb(colors["muted"])
-    w, h = 1536, 864
+    w, h = 1536, 950
     img = Image.new("RGB", (w, h), bg)
     draw = ImageDraw.Draw(img)
     ui = try_ui_font(28)
