@@ -37,6 +37,15 @@ machine (`kbd`, `terminus-font`); themes are not asked for font assets.
 | Carousel-safe | Mockups are 1536×864 (menu-images thumbnail size) with ~8% side inset so the 768×475 tile crop does not shave the subject. |
 | Curated, not exhaustive | archinstall lists every console font; Style keeps a Terminus-first set so the picker stays usable. |
 
+### Why a Style picker for fonts?
+
+Fonts are not theme colours — you are choosing a face/size, not syncing
+`colors.toml`. The carousel still earns its keep the same way the theme
+plugins do: mockups let you compare Terminus sizes across the curated set
+faster than applying each one and hopping to Ctrl+Alt+F3. Pair with
+[OmaVT](https://github.com/AlxWolfenstein97/omavt) when you want the TTY
+*palette* to match the desktop too.
+
 ## What you get
 
 - **Style → TTY Fonts** — labelled image picker (`omarchy-menu-images`).
