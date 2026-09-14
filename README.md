@@ -27,7 +27,9 @@ Themes do.
 
 These Style plugins extend Omarchy’s theme system **without requiring theme
 authors — or you — to ship anything extra**. Fonts come from packages on the
-machine (`kbd`, `terminus-font`); themes are not asked for font assets.
+machine (`kbd`, `terminus-font`); themes are not asked for font assets. The
+broader “theme every surface that accepts colour data” story and stop-line
+live in [Chroma](https://github.com/AlxWolfenstein97/chroma).
 
 | Goal | What that means here |
 |------|----------------------|
