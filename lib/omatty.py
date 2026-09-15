@@ -526,10 +526,11 @@ def theme_colors() -> dict[str, str]:
                 data[key.strip()] = value.strip().strip('"').strip("'")
             return {
                 "bg": data.get("background", "#1a1b26"),
-                "fg": data.get("foreground", "#c0caf5"),
+                "fg": data.get("bright_foreground", data.get("foreground", "#c0caf5")),
                 "accent": data.get("accent", data.get("cyan", "#7dcfff")),
                 "muted": data.get("muted", "#565f89"),
                 "green": data.get("green", "#9ece6a"),
+                "cyan": data.get("cyan", data.get("accent", "#7dcfff")),
                 "red": data.get("red", "#f7768e"),
             }
     return {
@@ -538,6 +539,7 @@ def theme_colors() -> dict[str, str]:
         "accent": "#7dcfff",
         "muted": "#565f89",
         "green": "#9ece6a",
+        "cyan": "#7dcfff",
         "red": "#f7768e",
     }
 
@@ -645,12 +647,27 @@ def bust_image_picker_cache(preview_root: Path) -> None:
             pass
 
 
+def tty_banner(tty: str = "tty1") -> str:
+    """Match getty banner: Omarchy <uname -r> (ttyN). Nested VM often lands on tty1."""
+    try:
+        release = subprocess.check_output(
+            ["uname", "-r"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+    except (OSError, subprocess.SubprocessError):
+        release = "7.2.3-arch1-3"
+    return f"Omarchy {release} ({tty})"
+
+
 def render_mockup(font_id: str, dest: Path | None = None) -> Path:
-    """Fake /dev/tty frame painted with the real PSF glyphs.
+    """Fake /dev/tty framebuffer painted with the real PSF glyphs.
 
     Canvas size is fixed (like a monitor). Bigger console fonts fit fewer
     columns/rows, so the sample session gets hilariously cropped the same
     way a real TTY does — not a larger picture with airier letterspacing.
+
+    Session script matches OmaVT (QEMU default-TTY capture): getty on tty1,
+    login wolf, single-GPU passthrough starter. Extra glyph rows follow so
+    small faces look roomy and fat Terminus still clips.
     """
     item = CURATED_BY_ID.get(font_id)
     if item is None:
@@ -662,14 +679,13 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
     colors = theme_colors()
     bg = _hex_rgb(colors["bg"])
     fg = _hex_rgb(colors["fg"])
-    accent = _hex_rgb(colors["accent"])
     muted = _hex_rgb(colors["muted"])
-    green = _hex_rgb(colors["green"])
+    cyan = _hex_rgb(colors["cyan"])
 
-    # Match omarchy-menu-images thumbnail size (1536×864). Keep the VT pane
-    # inside ~8% side margins so the 768×475 Style tile crop does not shave it.
+    # Match omarchy-menu-images thumbnail size (1536×864). Real TTY is
+    # top-left; no card chrome — the Style tile crop mostly shaves empty sides.
     w, h = 1536, 864
-    pad_x, header_h, footer_h, frame = 120, 72, 36, 10
+    footer_h = 36
 
     # Constant zoom so glyph size alone decides how much fits — same as a
     # real framebuffer. (Shrinking scale for big faces would fit *more*
@@ -677,62 +693,69 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
     scale = 2
     cell_w = max(1, font.width * scale)
     cell_h = max(1, font.height * scale)
-    term_x = pad_x
-    term_y = header_h
-    term_w = w - pad_x * 2
-    term_h = h - header_h - footer_h
+    term_x, term_y = 16, 16
+    term_w = w - term_x * 2
+    term_h = h - term_y - footer_h
     cols = max(8, term_w // cell_w)
     rows = max(3, term_h // cell_h)
 
     img = Image.new("RGB", (w, h), bg)
     draw = ImageDraw.Draw(img)
-    ui = try_ui_font(22)
     ui_sm = try_ui_font(18)
 
-    title = f"TTY · {item['label']}"
-    draw.text((pad_x, 28), title, font=ui, fill=accent)
-    draw.text((pad_x, 58), item.get("blurb", ""), font=ui_sm, fill=muted)
-
-    # Terminal frame — fixed size; glyphs paint inside and clip naturally.
-    draw.rectangle(
-        (term_x - frame, term_y - frame, term_x + term_w + frame - 1, term_y + term_h + frame - 1),
-        outline=muted,
-        width=2,
-    )
-
-    # Plenty of full-width material so small fonts look roomy and big fonts
-    # clip mid-line / mid-session — same joke as a real 45x11 console.
-    # Keep prompts generic (no real username / kernel / home paths).
+    # Keep session lines in sync with OmaVT (sibling Style plugin).
+    banner = tty_banner("tty1")
+    prompt = "~ > "
+    command = "sudo /home/wolf/vm-space/windows-11/single-gpu-start.sh"
     ruler = "".join(str(i % 10) for i in range(160))
     alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     lower = "abcdefghijklmnopqrstuvwxyz"
-    junk = "Documents  Downloads  Projects  Music  Pictures  Videos  .config  .cache  "
-    lines = [
-        ("user@omarchy ~", green),
-        ("> ls -la", fg),
-        ((junk * 4).rstrip(), fg),
-        ("user@omarchy ~", green),
-        ("> echo hello TTY", fg),
-        ("hello TTY", fg),
-        ("user@omarchy ~/Projects/very-long-project-name", green),
-        ("> ", fg),
+
+    # (text, color) rows — session first, then glyph demo that crops on fat faces.
+    lines: list[tuple[str, tuple[int, int, int]]] = [
+        (banner, fg),
+        ("omarchy login: wolf", fg),
+        ("Password:", fg),
+        (prompt + command, cyan),  # whole line cyan-ish; split below when drawing
         ("", fg),
         (ruler, muted),
         (alphabet * 3, fg),
         (lower * 3, fg),
         ("0123456789  +-*/=  ()[]{}  box:+-|/=  arrows:^v<>  " * 3, muted),
-        ("user@omarchy ~", green),
-        ("> setfont; # bigger face = fewer cells on the same glass", fg),
+        ("# bigger face = fewer cells on the same glass", muted),
     ]
 
-    # Clip drawing to the terminal pane so partial last cells stay inside.
     term_layer = Image.new("RGB", (term_w, term_h), bg)
-    for index, (text, color) in enumerate(lines[:rows]):
-        draw_text(term_layer, font, text[:cols], 0, index * cell_h, color, bg, scale)
+    row_i = 0
+    for text, color in lines:
+        if row_i >= rows:
+            break
+        if text == prompt + command:
+            # Prompt accent + command — matches the QEMU capture.
+            draw_text(term_layer, font, prompt[:cols], 0, row_i * cell_h, cyan, bg, scale)
+            rest = command
+            # Continue command on same row after prompt width in cells.
+            prompt_cells = len(prompt)
+            if prompt_cells < cols:
+                draw_text(
+                    term_layer,
+                    font,
+                    rest[: cols - prompt_cells],
+                    prompt_cells * cell_w,
+                    row_i * cell_h,
+                    fg,
+                    bg,
+                    scale,
+                )
+            row_i += 1
+            continue
+        draw_text(term_layer, font, text[:cols], 0, row_i * cell_h, color, bg, scale)
+        row_i += 1
+
     img.paste(term_layer, (term_x, term_y))
 
-    badge = f"{font.width}x{font.height} · {cols}x{rows} cells · {item['file']}"
-    draw.text((pad_x, h - 28), badge, font=ui_sm, fill=muted)
+    badge = f"{item['label']} · {font.width}x{font.height} · {cols}x{rows} cells · {item['file']}"
+    draw.text((term_x, h - 28), badge, font=ui_sm, fill=muted)
 
     dest = dest or preview_path(font_id)
     save_png_atomic(img, dest)

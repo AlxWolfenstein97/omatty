@@ -35,8 +35,8 @@ live in [Chroma](https://github.com/AlxWolfenstein97/chroma).
 |------|----------------------|
 | Zero extra theme assets | No per-theme font previews. Glyphs come from installed PSF files. |
 | Extreme compatibility | Works beside any Omarchy theme; pairs with [OmaVT](https://github.com/AlxWolfenstein97/omavt) for palette. |
-| Closest-to-real mockups | Actual PSF bitmaps in a fake VT frame — still not a live `/dev/tty` capture. |
-| Carousel-safe | Mockups are 1536×864 (menu-images thumbnail size) with ~8% side inset so the 768×475 tile crop does not shave the subject. |
+| Closest-to-real mockups | Actual PSF bitmaps on a top-left getty session (same script as OmaVT). Still not a live `/dev/tty` capture. |
+| Carousel-safe | Mockups are 1536×864. Session is top-left; bigger faces crop mid-command like a real framebuffer. |
 | Curated, not exhaustive | archinstall lists every console font; Style keeps a Terminus-first set so the picker stays usable. |
 
 ### Why a Style picker for fonts?
@@ -51,19 +51,33 @@ faster than applying each one and hopping to Ctrl+Alt+F3. Pair with
 ## What you get
 
 - **Style → TTY Fonts** — labelled image picker (`omarchy-menu-images`).
-- **Real PSF mockups** — a fake virtual-console frame painted with the font's
-  own glyphs (not a lookalike TTF), so sizes read true before you apply.
+- **Real PSF mockups** — top-left getty session painted with the font's own
+  glyphs (not a lookalike TTF), so sizes read true before you apply.
 - **Cropped like a TTY, not Hyprland** — fixed “glass”; bigger faces fit fewer
   columns/rows and **crop the content**. That is 1970s zoom (same framebuffer,
   hungrier cells), not compositor zoom that keeps layout and shrinks the
   viewport. Side effects on TUIs are real — fewer cells is fewer cells — and
-  the mockup shows that on purpose.
+  the mockup shows that on purpose (watch the passthrough path get eaten).
 - **Every `ter-v*` weight the package ships** — 12–32, normal **and** bold
   (no `ter-v12b` upstream). On-demand `terminus-font` install when you pick one.
 - **Safe `vconsole.conf` patch** — only `FONT=` (inside `# omatty` markers).
   `KEYMAP` / XKB stay untouched.
 - **TTY-safe Starship** — Omarchy’s desktop prompt glyphs will tofu on a
   bitmap console; OmaTTY ships a parallel profile for real `/dev/tty*` only.
+
+## Mockups: shared session with OmaVT (real PSF paint)
+
+Same getty script as [OmaVT](https://github.com/AlxWolfenstein97/omavt) — banner,
+`wolf` login, `~ > sudo …/single-gpu-start.sh` — but every cell is a **real
+console glyph** from the PSF you are picking. Layout from a QEMU default-TTY
+capture (nested Omarchy, SDDM off → **tty1**; no GPU passthrough so F-keys stay
+on the host). Themes are not asked for font art.
+
+**Compare — real default TTY vs Terminus 32 Bold mockup:**
+
+| Real getty (QEMU, stock face / tty1) | OmaTTY mockup (ter-v32b — path crops) |
+| --- | --- |
+| ![Real Omarchy TTY on tty1 — QEMU reference](reference-tty-default.png) | ![OmaTTY Terminus 32 Bold — same session, real PSF glyphs](preview.png) |
 
 ## Starship on a real TTY
 
@@ -154,9 +168,14 @@ bash ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/check.sh
 
 ## Credits
 
+- **Layout reference:** [`reference-tty-default.png`](reference-tty-default.png)
+  — QEMU getty on tty1 (SDDM off in a nested Omarchy VM). Same session script as
+  OmaVT; this plugin paints it with real PSF glyphs. Hero: **Terminus 32 Bold**.
 - Sibling Style plugins: [OmaBoot](https://github.com/AlxWolfenstein97/omaboot),
   [OmaVT](https://github.com/AlxWolfenstein97/omavt),
-  [OmaOBS](https://github.com/AlxWolfenstein97/omaobs).
+  [OmaOBS](https://github.com/AlxWolfenstein97/omaobs),
+  [OmaCursor](https://github.com/AlxWolfenstein97/omacursor),
+  [Chroma](https://github.com/AlxWolfenstein97/chroma).
 - [archinstall](https://github.com/archlinux/archinstall) Console font menu /
   `terminus-font` auto-strap.
 - [Omarchy](https://omarchy.org/) — Style menu image picker and floating-terminal
