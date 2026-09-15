@@ -666,8 +666,8 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
     way a real TTY does — not a larger picture with airier letterspacing.
 
     Session script matches OmaVT (QEMU default-TTY capture): getty on tty1,
-    login wolf, single-GPU passthrough starter. Extra glyph rows follow so
-    small faces look roomy and fat Terminus still clips.
+    login wolf, single-GPU passthrough starter — only that session, no extra
+    alphabet rows. Content stays inside SAFE_X for the Style carousel crop.
     """
     item = CURATED_BY_ID.get(font_id)
     if item is None:
@@ -682,10 +682,11 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
     muted = _hex_rgb(colors["muted"])
     cyan = _hex_rgb(colors["cyan"])
 
-    # Match omarchy-menu-images thumbnail size (1536×864). Real TTY is
-    # top-left; no card chrome — the Style tile crop mostly shaves empty sides.
+    # Match omarchy-menu-images thumbnail size (1536×864). Side crop on the
+    # 768×475 Style tile shaves ~8%; keep the VT pane inside that margin.
     w, h = 1536, 864
-    footer_h = 36
+    safe_x, safe_y = 120, 56
+    footer_h = 40
 
     # Constant zoom so glyph size alone decides how much fits — same as a
     # real framebuffer. (Shrinking scale for big faces would fit *more*
@@ -693,8 +694,8 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
     scale = 2
     cell_w = max(1, font.width * scale)
     cell_h = max(1, font.height * scale)
-    term_x, term_y = 16, 16
-    term_w = w - term_x * 2
+    term_x, term_y = safe_x, safe_y
+    term_w = w - safe_x * 2
     term_h = h - term_y - footer_h
     cols = max(8, term_w // cell_w)
     rows = max(3, term_h // cell_h)
@@ -707,22 +708,13 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
     banner = tty_banner("tty1")
     prompt = "~ > "
     command = "sudo /home/wolf/vm-space/windows-11/single-gpu-start.sh"
-    ruler = "".join(str(i % 10) for i in range(160))
-    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    lower = "abcdefghijklmnopqrstuvwxyz"
 
-    # (text, color) rows — session first, then glyph demo that crops on fat faces.
+    # Just the captured getty session — fat faces crop the path; that is enough.
     lines: list[tuple[str, tuple[int, int, int]]] = [
         (banner, fg),
         ("omarchy login: wolf", fg),
         ("Password:", fg),
-        (prompt + command, cyan),  # whole line cyan-ish; split below when drawing
-        ("", fg),
-        (ruler, muted),
-        (alphabet * 3, fg),
-        (lower * 3, fg),
-        ("0123456789  +-*/=  ()[]{}  box:+-|/=  arrows:^v<>  " * 3, muted),
-        ("# bigger face = fewer cells on the same glass", muted),
+        (prompt + command, cyan),
     ]
 
     term_layer = Image.new("RGB", (term_w, term_h), bg)
@@ -731,16 +723,13 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
         if row_i >= rows:
             break
         if text == prompt + command:
-            # Prompt accent + command — matches the QEMU capture.
             draw_text(term_layer, font, prompt[:cols], 0, row_i * cell_h, cyan, bg, scale)
-            rest = command
-            # Continue command on same row after prompt width in cells.
             prompt_cells = len(prompt)
             if prompt_cells < cols:
                 draw_text(
                     term_layer,
                     font,
-                    rest[: cols - prompt_cells],
+                    command[: cols - prompt_cells],
                     prompt_cells * cell_w,
                     row_i * cell_h,
                     fg,
@@ -752,10 +741,20 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
         draw_text(term_layer, font, text[:cols], 0, row_i * cell_h, color, bg, scale)
         row_i += 1
 
+    # Block cursor on the next row when it fits.
+    if row_i < rows:
+        draw_text(term_layer, font, " ", 0, row_i * cell_h, fg, bg, scale)
+        # Solid cell as cursor
+        cursor = ImageDraw.Draw(term_layer)
+        cursor.rectangle(
+            (0, row_i * cell_h, cell_w - 1, (row_i + 1) * cell_h - 1),
+            fill=fg,
+        )
+
     img.paste(term_layer, (term_x, term_y))
 
     badge = f"{item['label']} · {font.width}x{font.height} · {cols}x{rows} cells · {item['file']}"
-    draw.text((term_x, h - 28), badge, font=ui_sm, fill=muted)
+    draw.text((safe_x, h - 28), badge, font=ui_sm, fill=muted)
 
     dest = dest or preview_path(font_id)
     save_png_atomic(img, dest)

@@ -36,7 +36,7 @@ live in [Chroma](https://github.com/AlxWolfenstein97/chroma).
 | Zero extra theme assets | No per-theme font previews. Glyphs come from installed PSF files. |
 | Extreme compatibility | Works beside any Omarchy theme; pairs with [OmaVT](https://github.com/AlxWolfenstein97/omavt) for palette. |
 | Closest-to-real mockups | Actual PSF bitmaps on a top-left getty session (same script as OmaVT). Still not a live `/dev/tty` capture. |
-| Carousel-safe | Mockups are 1536×864. Session is top-left; bigger faces crop mid-command like a real framebuffer. |
+| Carousel-safe | Mockups are 1536×864 with ~8% side inset. Session stays top-left *inside* that margin; bigger faces crop mid-command like a real framebuffer. |
 | Curated, not exhaustive | archinstall lists every console font; Style keeps a Terminus-first set so the picker stays usable. |
 
 ### Why a Style picker for fonts?
