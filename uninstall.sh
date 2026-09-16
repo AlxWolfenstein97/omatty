@@ -34,4 +34,5 @@ fi
 
 note "done — no omatty menu, starship TTY profile, or managed FONT= left"
 note "plugin files remain at $here until you omit/remove the plugin"
+note "optional: omarchy pkg drop python-pillow terminus-font  # if nothing else needs them"
 exit 0

@@ -155,8 +155,15 @@ omarchy plugin remove io.github.alxwolfenstein97.omatty
 
 Uninstall is a clean slate: menu row, bashrc starship snippet,
 `~/.config/omarchy/omatty/` (including `starship-tty.toml`), cache/state, and
-the managed `FONT=` block in `vconsole.conf` (sudo). Does **not**
-`pacman -R terminus-font` — that package is shared system fonts.
+the managed `FONT=` block in `vconsole.conf` (sudo).
+
+Shared packages stay installed (fonts / imaging libs other tools may use).
+Optional wipe:
+
+```sh
+omarchy pkg drop python-pillow    # only if nothing else needs Pillow
+omarchy pkg drop terminus-font    # only if you no longer want Terminus console faces
+```
 
 ## Why not every console font?
 
