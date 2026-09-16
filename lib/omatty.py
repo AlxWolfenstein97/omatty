@@ -1110,7 +1110,43 @@ def uninstall_starship_tty() -> None:
         content = bashrc.read_text(encoding="utf-8")
         if BASHRC_START in content:
             atomic_write(bashrc, remove_marked(content, BASHRC_START, BASHRC_END))
-    # Leave starship-tty.toml in config dir; harmless and reusable.
+    cfg = paths()["config"]
+    starship = cfg / "starship-tty.toml"
+    starship.unlink(missing_ok=True)
+    if cfg.is_dir():
+        # We own ~/.config/omarchy/omatty — drop the whole tree if empty-ish.
+        try:
+            for path in sorted(cfg.rglob("*"), reverse=True):
+                if path.is_file() or path.is_symlink():
+                    path.unlink(missing_ok=True)
+                elif path.is_dir():
+                    path.rmdir()
+            cfg.rmdir()
+        except OSError:
+            pass
+
+
+def clear_vconsole_font(*, quiet: bool = False) -> None:
+    """Remove OmaTTY’s managed FONT= block (stock Omarchy leaves FONT unset)."""
+    existing = read_vconsole()
+    if VCONSOLE_START not in existing:
+        if not quiet:
+            note("no omatty FONT= block in vconsole.conf")
+        return
+    cleaned = remove_marked(existing, VCONSOLE_START, VCONSOLE_END)
+    # Collapse leftover blank runs from the removed block.
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    if not cleaned.endswith("\n"):
+        cleaned += "\n"
+    write_vconsole(cleaned)
+    if not quiet:
+        note("cleared omatty FONT= from vconsole.conf")
+
+
+def cmd_clear(args: argparse.Namespace) -> int:
+    clear_vconsole_font(quiet=bool(args.quiet))
+    uninstall_starship_tty()
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -1284,6 +1320,10 @@ def build_parser() -> argparse.ArgumentParser:
     setter.add_argument("--quiet", action="store_true")
     setter.add_argument("--dry-run", action="store_true")
     setter.set_defaults(func=cmd_set)
+
+    clear = sub.add_parser("clear", help="Remove omatty FONT= block + starship TTY wiring (sudo for vconsole)")
+    clear.add_argument("--quiet", action="store_true")
+    clear.set_defaults(func=cmd_clear)
 
     sub.add_parser("switcher", help="Open image picker; print chosen font id").set_defaults(
         func=cmd_switcher

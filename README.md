@@ -153,10 +153,10 @@ omarchy plugin disable io.github.alxwolfenstein97.omatty
 omarchy plugin remove io.github.alxwolfenstein97.omatty
 ```
 
-Uninstall removes the menu row, bashrc snippet, and cache/state. It does
-**not** rewrite `vconsole.conf` — your last `FONT=` stays until you change it.
-The starship-tty.toml under `~/.config/omarchy/omatty/` is left in place
-(harmless if unused).
+Uninstall is a clean slate: menu row, bashrc starship snippet,
+`~/.config/omarchy/omatty/` (including `starship-tty.toml`), cache/state, and
+the managed `FONT=` block in `vconsole.conf` (sudo). Does **not**
+`pacman -R terminus-font` — that package is shared system fonts.
 
 ## Why not every console font?
 
