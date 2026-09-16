@@ -197,7 +197,9 @@ bash ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/check.sh
 - **Layout reference:** [`reference-tty-default.png`](reference-tty-default.png)
   — QEMU getty on tty1 (SDDM off in a nested Omarchy VM). Same session script as
   OmaVT; this plugin paints it with real PSF glyphs on **VGA Default** (palette
-  theming is OmaVT’s job). Hero: **Terminus 32 Bold**.
+  theming is OmaVT’s job). Compare mockup (same stock face):
+  [`preview-default8x16.png`](preview-default8x16.png). Hero:
+  **Terminus 32 Bold** ([`preview.png`](preview.png)).
 - Sibling Style plugins: [OmaBoot](https://github.com/AlxWolfenstein97/omaboot),
   [OmaVT](https://github.com/AlxWolfenstein97/omavt),
   [OmaOBS](https://github.com/AlxWolfenstein97/omaobs),
