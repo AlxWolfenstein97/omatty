@@ -15,12 +15,14 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import multiprocessing as mp
 import os
 import re
 import struct
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -783,6 +785,20 @@ def render_missing_mockup(font_id: str, dest: Path) -> Path:
     return dest
 
 
+def _preview_pool(workers: int) -> ProcessPoolExecutor:
+    # See omacursor: force fork so bin/* → python3 lib/*.py workers do not
+    # re-import __main__ under Python 3.14's forkserver default.
+    try:
+        ctx = mp.get_context("fork")
+    except ValueError:
+        ctx = mp.get_context()
+    return ProcessPoolExecutor(max_workers=workers, mp_context=ctx)
+
+
+def _warm_one_preview(font_id: str) -> Path:
+    return render_mockup(font_id)
+
+
 def generate_all_previews() -> list[Path]:
     out: list[Path] = []
     preview_root = paths()["cache"] / "previews"
@@ -791,8 +807,19 @@ def generate_all_previews() -> list[Path]:
     for existing in preview_root.glob("*.png"):
         if existing.stem not in wanted:
             existing.unlink(missing_ok=True)
-    for item in CURATED:
-        out.append(render_mockup(item["id"]))
+    jobs = [item["id"] for item in CURATED]
+    if not jobs:
+        bust_image_picker_cache(preview_root)
+        return out
+    workers = max(1, min(len(jobs), os.cpu_count() or 2))
+    with _preview_pool(workers) as pool:
+        futures = {pool.submit(_warm_one_preview, font_id): font_id for font_id in jobs}
+        for fut in as_completed(futures):
+            font_id = futures[fut]
+            try:
+                out.append(fut.result())
+            except Exception as error:  # noqa: BLE001
+                note(f"preview {font_id}: {error}")
     # Force omarchy-menu-images to rebuild thumbnails (survives reboot otherwise).
     bust_image_picker_cache(preview_root)
     return out
