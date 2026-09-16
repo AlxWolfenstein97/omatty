@@ -495,38 +495,21 @@ def pretty_label(font_id: str) -> str:
 
 
 def theme_colors() -> dict[str, str]:
-    """Pull a rough palette from the active Omarchy theme when present."""
-    name_path = home() / ".local/state/omarchy/current/theme.name"
-    slug = ""
-    if name_path.is_file():
-        slug = name_path.read_text(encoding="utf-8").strip().lower().replace(" ", "-")
-    for root in (home() / ".config/omarchy/themes", Path("/usr/share/omarchy/themes")):
-        colors = root / slug / "colors.toml" if slug else None
-        if colors and colors.is_file():
-            data: dict[str, str] = {}
-            for line in colors.read_text(encoding="utf-8").splitlines():
-                stripped = line.strip()
-                if not stripped or stripped.startswith("#") or "=" not in stripped:
-                    continue
-                key, _, value = stripped.partition("=")
-                data[key.strip()] = value.strip().strip('"').strip("'")
-            return {
-                "bg": data.get("background", "#1a1b26"),
-                "fg": data.get("bright_foreground", data.get("foreground", "#c0caf5")),
-                "accent": data.get("accent", data.get("cyan", "#7dcfff")),
-                "muted": data.get("muted", "#565f89"),
-                "green": data.get("green", "#9ece6a"),
-                "cyan": data.get("cyan", data.get("accent", "#7dcfff")),
-                "red": data.get("red", "#f7768e"),
-            }
+    """Stock VGA console palette — fonts only; leave theming to OmaVT.
+
+    Mockups stay on the kernel default 16-colour set so the carousel compares
+    faces, not the active desktop theme. Pair with OmaVT when you want the TTY
+    palette to follow `colors.toml`.
+    """
+    # Same RGB as OmaVT's `default` / classic Linux VT (VGA).
     return {
-        "bg": "#1a1b26",
-        "fg": "#c0caf5",
-        "accent": "#7dcfff",
-        "muted": "#565f89",
-        "green": "#9ece6a",
-        "cyan": "#7dcfff",
-        "red": "#f7768e",
+        "bg": "#000000",
+        "fg": "#aaaaaa",
+        "accent": "#00aa00",
+        "muted": "#555555",
+        "green": "#00aa00",
+        "cyan": "#00aaaa",
+        "red": "#aa0000",
     }
 
 
@@ -557,7 +540,7 @@ def preview_path(font_id: str) -> Path:
 
 
 # Bump when PSF mockup chrome / session script changes so cached tiles re-draw.
-MOCKUP_LAYOUT_VERSION = "3"
+MOCKUP_LAYOUT_VERSION = "4"
 
 
 def _input_token(path: Path | None) -> str:
@@ -590,20 +573,6 @@ def _write_preview_meta(dest: Path, fingerprint: str) -> None:
         pass
 
 
-def _active_colors_path() -> Path | None:
-    name_path = home() / ".local/state/omarchy/current/theme.name"
-    slug = ""
-    if name_path.is_file():
-        slug = name_path.read_text(encoding="utf-8").strip().lower().replace(" ", "-")
-    if not slug:
-        return None
-    for root in (home() / ".config/omarchy/themes", Path("/usr/share/omarchy/themes")):
-        colors = root / slug / "colors.toml"
-        if colors.is_file():
-            return colors
-    return None
-
-
 def _kernel_release() -> str:
     try:
         return subprocess.check_output(
@@ -619,7 +588,7 @@ def _preview_fingerprint(font_id: str) -> str:
     return (
         f"layout:{MOCKUP_LAYOUT_VERSION}"
         f"|font:{_input_token(font_path)}"
-        f"|colors:{_input_token(_active_colors_path())}"
+        f"|colors:vga-default"
         f"|uname:{_kernel_release()}"
         f"|id:{font_id}"
     )
@@ -852,7 +821,6 @@ def generate_all_previews() -> list[Path]:
             existing.unlink(missing_ok=True)
             _preview_meta_path(existing).unlink(missing_ok=True)
     # Shared across fonts — compute once so hit path stays cheap.
-    colors_tok = _input_token(_active_colors_path())
     uname = _kernel_release()
     dirty: list[str] = []
     for item in CURATED:
@@ -861,7 +829,7 @@ def generate_all_previews() -> list[Path]:
         fp = (
             f"layout:{MOCKUP_LAYOUT_VERSION}"
             f"|font:{_input_token(font_path)}"
-            f"|colors:{colors_tok}"
+            f"|colors:vga-default"
             f"|uname:{uname}"
             f"|id:{font_id}"
         )

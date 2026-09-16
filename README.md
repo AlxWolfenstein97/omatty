@@ -38,7 +38,7 @@ live in [Chroma](https://github.com/AlxWolfenstein97/chroma).
 | Closest-to-real mockups | Actual PSF bitmaps on a top-left getty session (same script as OmaVT). Still not a live `/dev/tty` capture. |
 | Carousel-safe | Mockups are 1536×864 with ~8% side inset. Session stays top-left *inside* that margin; bigger faces crop mid-command like a real framebuffer. |
 | Curated, not exhaustive | archinstall lists every console font; Style keeps a Terminus-first set so the picker stays usable. |
-| Snappy pickers | Mockups warm in parallel across CPU cores and **skip tiles whose font / active `colors.toml` / layout haven’t changed** — reopen is near-instant. On par with Omarchy’s stock Style carousels. |
+| Snappy pickers | Mockups warm in parallel across CPU cores and **skip tiles whose font / layout haven’t changed** — reopen is near-instant. On par with Omarchy’s stock Style carousels. |
 
 ### Why a Style picker for fonts?
 
@@ -72,9 +72,11 @@ Same getty script as [OmaVT](https://github.com/AlxWolfenstein97/omavt) — bann
 `wolf` login, `~ > sudo …/single-gpu-start.sh` — but every cell is a **real
 console glyph** from the PSF you are picking. Layout from a QEMU default-TTY
 capture (nested Omarchy, SDDM off → **tty1**; no GPU passthrough so F-keys stay
-on the host). Themes are not asked for font art.
+on the host). Paint stays on the **stock VGA Default** palette so the carousel
+compares faces, not themes — [OmaVT](https://github.com/AlxWolfenstein97/omavt)
+owns `colors.toml` → VT colour.
 
-**Compare — real default TTY vs Terminus 32 Bold mockup:**
+**Compare — real default TTY vs Terminus 32 Bold mockup (both VGA Default):**
 
 | Real getty (QEMU, stock face / tty1) | OmaTTY mockup (ter-v32b — path crops) |
 | --- | --- |
@@ -178,8 +180,8 @@ archinstall’s Console font menu is exhaustive on purpose. For a Style carousel
 only keep faces you can tell apart at a glance: the Arch default, two useful kbd
 fonts, and every Terminus Unicode size/weight the package ships — not a full
 archinstall clone, just the part that earns its keep. Mockups warm in parallel
-across CPU cores and **skip tiles whose font / active `colors.toml` / layout
-haven’t changed** — same snappy reopen as the other Style extenders.
+across CPU cores and **skip tiles whose font / layout haven’t changed** — same
+snappy reopen as the other Style extenders.
 
 ## Check
 
@@ -191,7 +193,8 @@ bash ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/check.sh
 
 - **Layout reference:** [`reference-tty-default.png`](reference-tty-default.png)
   — QEMU getty on tty1 (SDDM off in a nested Omarchy VM). Same session script as
-  OmaVT; this plugin paints it with real PSF glyphs. Hero: **Terminus 32 Bold**.
+  OmaVT; this plugin paints it with real PSF glyphs on **VGA Default** (palette
+  theming is OmaVT’s job). Hero: **Terminus 32 Bold**.
 - Sibling Style plugins: [OmaBoot](https://github.com/AlxWolfenstein97/omaboot),
   [OmaVT](https://github.com/AlxWolfenstein97/omavt),
   [OmaOBS](https://github.com/AlxWolfenstein97/omaobs),
