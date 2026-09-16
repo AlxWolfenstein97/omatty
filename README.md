@@ -125,7 +125,12 @@ omarchy plugin enable io.github.alxwolfenstein97.omatty
 | `terminus-font` | Terminus `ter-v*` console faces the curated picker shows. Without it those tiles cannot render. |
 
 Also needs Omarchy’s image picker, `kbd` (`setfont`), and sudo for apply.
-`install.sh` installs both packages **before** warming mockups.
+`install.sh` installs both packages **before** warming mockups. Same sudo story
+as Chroma: interactive TTY can `omarchy pkg add` inline; shell-service `--quiet`
+opens one floating terminal once when Terminus/Pillow are missing. Dismissed it?
+`omarchy pkg add python-pillow terminus-font` then re-open Style → TTY Fonts
+(or `omatty preview`). Mid-session enable: install refreshes the menu and
+`rescanPlugins`; a shell restart also picks everything up.
 
 **Font-menu side effect:** pulling `terminus-font` also registers Terminus under
 Omarchy’s graphical **Fonts** menu (same class of package fallout as Courier New
