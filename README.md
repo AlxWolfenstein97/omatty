@@ -76,11 +76,14 @@ on the host). Paint stays on the **stock VGA Default** palette so the carousel
 compares faces, not themes — [OmaVT](https://github.com/AlxWolfenstein97/omavt)
 owns `colors.toml` → VT colour.
 
-**Compare — real default TTY vs Terminus 32 Bold mockup (both VGA Default):**
+**Compare — real default TTY vs `default8x16` mockup (same face, VGA Default):**
 
-| Real getty (QEMU, stock face / tty1) | OmaTTY mockup (ter-v32b — path crops) |
+| Real getty (QEMU, stock `default8x16` / tty1) | OmaTTY mockup (`default8x16`) |
 | --- | --- |
-| ![Real Omarchy TTY on tty1 — QEMU reference](reference-tty-default.png) | ![OmaTTY Terminus 32 Bold — same session, real PSF glyphs](preview.png) |
+| ![Real Omarchy TTY on tty1 — QEMU reference](reference-tty-default.png) | ![OmaTTY default8x16 — same session, real PSF glyphs](preview-default8x16.png) |
+
+Hero at the top is the same session on **Terminus 32 Bold** — the face the
+carousel is selling for HiDPI glass (watch the path get eaten).
 
 ## Starship on a real TTY
 
