@@ -38,6 +38,7 @@ live in [Chroma](https://github.com/AlxWolfenstein97/chroma).
 | Closest-to-real mockups | Actual PSF bitmaps on a top-left getty session (same script as OmaVT). Still not a live `/dev/tty` capture. |
 | Carousel-safe | Mockups are 1536×864 with ~8% side inset. Session stays top-left *inside* that margin; bigger faces crop mid-command like a real framebuffer. |
 | Curated, not exhaustive | archinstall lists every console font; Style keeps a Terminus-first set so the picker stays usable. |
+| Snappy pickers | Mockups warm in parallel across CPU cores and **skip tiles whose font / active `colors.toml` / layout haven’t changed** — reopen is near-instant. |
 
 ### Why a Style picker for fonts?
 
@@ -171,7 +172,8 @@ archinstall’s menu is exhaustive on purpose. For a Style carousel we only keep
 faces you can tell apart at a glance: the Arch default, two useful kbd fonts,
 and every Terminus Unicode size/weight the package ships. Missing `ter-*`
 tiles still show a placeholder that says the package will be installed on
-apply. Mockups warm in parallel across CPU cores — same snappy open as the
+apply. Mockups warm in parallel across CPU cores and **skip tiles whose font /
+active `colors.toml` / layout haven’t changed** — same snappy reopen as the
 other Style extenders.
 
 ## Check

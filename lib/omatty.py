@@ -572,6 +572,75 @@ def preview_path(font_id: str) -> Path:
     return paths()["cache"] / "previews" / f"{font_id}.png"
 
 
+# Bump when PSF mockup chrome / session script changes so cached tiles re-draw.
+MOCKUP_LAYOUT_VERSION = "2"
+
+
+def _input_token(path: Path | None) -> str:
+    if path is None:
+        return "none"
+    try:
+        st = path.stat()
+    except OSError:
+        return "missing"
+    return f"{st.st_mtime_ns}:{st.st_size}"
+
+
+def _preview_meta_path(dest: Path) -> Path:
+    return Path(str(dest) + ".meta")
+
+
+def _preview_fresh(dest: Path, fingerprint: str) -> bool:
+    if not dest.is_file():
+        return False
+    try:
+        return _preview_meta_path(dest).read_text(encoding="utf-8").strip() == fingerprint
+    except OSError:
+        return False
+
+
+def _write_preview_meta(dest: Path, fingerprint: str) -> None:
+    try:
+        _preview_meta_path(dest).write_text(fingerprint + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _active_colors_path() -> Path | None:
+    name_path = home() / ".local/state/omarchy/current/theme.name"
+    slug = ""
+    if name_path.is_file():
+        slug = name_path.read_text(encoding="utf-8").strip().lower().replace(" ", "-")
+    if not slug:
+        return None
+    for root in (home() / ".config/omarchy/themes", Path("/usr/share/omarchy/themes")):
+        colors = root / slug / "colors.toml"
+        if colors.is_file():
+            return colors
+    return None
+
+
+def _kernel_release() -> str:
+    try:
+        return subprocess.check_output(
+            ["uname", "-r"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+
+
+def _preview_fingerprint(font_id: str) -> str:
+    item = CURATED_BY_ID.get(font_id)
+    font_path = resolve_font_file(item["file"]) if item else None
+    return (
+        f"layout:{MOCKUP_LAYOUT_VERSION}"
+        f"|font:{_input_token(font_path)}"
+        f"|colors:{_input_token(_active_colors_path())}"
+        f"|uname:{_kernel_release()}"
+        f"|id:{font_id}"
+    )
+
+
 def save_png_atomic(img: Image.Image, dest: Path) -> None:
     """Write PNG via rename so the preview directory mtime updates.
 
@@ -796,7 +865,17 @@ def _preview_pool(workers: int) -> ProcessPoolExecutor:
 
 
 def _warm_one_preview(font_id: str) -> Path:
-    return render_mockup(font_id)
+    return generate_preview(font_id, force=True)
+
+
+def generate_preview(font_id: str, *, force: bool = False) -> Path:
+    dest = preview_path(font_id)
+    fp = _preview_fingerprint(font_id)
+    if not force and _preview_fresh(dest, fp):
+        return dest
+    render_mockup(font_id, dest)
+    _write_preview_meta(dest, fp)
+    return dest
 
 
 def generate_all_previews() -> list[Path]:
@@ -807,20 +886,35 @@ def generate_all_previews() -> list[Path]:
     for existing in preview_root.glob("*.png"):
         if existing.stem not in wanted:
             existing.unlink(missing_ok=True)
-    jobs = [item["id"] for item in CURATED]
-    if not jobs:
-        bust_image_picker_cache(preview_root)
+            _preview_meta_path(existing).unlink(missing_ok=True)
+    # Shared across fonts — compute once so hit path stays cheap.
+    colors_tok = _input_token(_active_colors_path())
+    uname = _kernel_release()
+    dirty: list[str] = []
+    for item in CURATED:
+        font_id = item["id"]
+        font_path = resolve_font_file(item["file"])
+        fp = (
+            f"layout:{MOCKUP_LAYOUT_VERSION}"
+            f"|font:{_input_token(font_path)}"
+            f"|colors:{colors_tok}"
+            f"|uname:{uname}"
+            f"|id:{font_id}"
+        )
+        if _preview_fresh(preview_path(font_id), fp):
+            continue
+        dirty.append(font_id)
+    if not dirty:
         return out
-    workers = max(1, min(len(jobs), os.cpu_count() or 2))
+    workers = max(1, min(len(dirty), os.cpu_count() or 2))
     with _preview_pool(workers) as pool:
-        futures = {pool.submit(_warm_one_preview, font_id): font_id for font_id in jobs}
+        futures = {pool.submit(_warm_one_preview, font_id): font_id for font_id in dirty}
         for fut in as_completed(futures):
             font_id = futures[fut]
             try:
                 out.append(fut.result())
             except Exception as error:  # noqa: BLE001
                 note(f"preview {font_id}: {error}")
-    # Force omarchy-menu-images to rebuild thumbnails (survives reboot otherwise).
     bust_image_picker_cache(preview_root)
     return out
 
