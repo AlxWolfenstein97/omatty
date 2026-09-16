@@ -154,10 +154,15 @@ doubles whatever face is loaded (horizontal + vertical).
 | `omarchy pkg drop python-pillow` | Optional. Only if nothing else on the machine needs Pillow. |
 | `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces. |
 
+**Full wipe** — copy-paste to remove plugin wiring *and* packages this plugin may
+have pulled (skip a `pkg drop` line if something else still needs that package):
+
 ```sh
 ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/uninstall.sh
 omarchy plugin disable io.github.alxwolfenstein97.omatty
 omarchy plugin remove io.github.alxwolfenstein97.omatty
+omarchy pkg drop python-pillow
+omarchy pkg drop terminus-font
 ```
 
 ## Why not every console font?
