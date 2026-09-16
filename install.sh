@@ -50,13 +50,18 @@ ensure_pkg python-pillow "draws Style → TTY Fonts mockups from real console fo
 ensure_pkg terminus-font "Terminus console faces for Style → TTY Fonts"
 
 "$here/bin/omatty" install-menu
-omarchy-shell -q omarchy.menu refresh >/dev/null 2>&1 || true
-omarchy-shell -q shell rescanPlugins >/dev/null 2>&1 || true
+# Shell service re-runs install --quiet on every boot — skip menu/shell
+# rescans there (they stack across plugins and feel like a Hypr "zoom stroke").
+if (( ! quiet )); then
+  omarchy-shell -q omarchy.menu refresh >/dev/null 2>&1 || true
+  omarchy-shell -q shell rescanPlugins >/dev/null 2>&1 || true
+fi
 
-# Warm mockups in the background so Style > TTY Fonts opens quickly.
-(
-  "$here/bin/omatty" preview >/dev/null 2>&1 || true
-) &
+if (( ! quiet )); then
+  (
+    "$here/bin/omatty" preview >/dev/null 2>&1 || true
+  ) &
+fi
 
 if command -v omarchy >/dev/null 2>&1; then
   omarchy plugin enable "$plugin_id" >/dev/null 2>&1 || true

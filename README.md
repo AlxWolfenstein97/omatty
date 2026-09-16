@@ -38,7 +38,7 @@ live in [Chroma](https://github.com/AlxWolfenstein97/chroma).
 | Closest-to-real mockups | Actual PSF bitmaps on a top-left getty session (same script as OmaVT). Still not a live `/dev/tty` capture. |
 | Carousel-safe | Mockups are 1536×864 with ~8% side inset. Session stays top-left *inside* that margin; bigger faces crop mid-command like a real framebuffer. |
 | Curated, not exhaustive | archinstall lists every console font; Style keeps a Terminus-first set so the picker stays usable. |
-| Snappy pickers | Mockups warm in parallel across CPU cores and **skip tiles whose font / active `colors.toml` / layout haven’t changed** — reopen is near-instant. |
+| Snappy pickers | Mockups warm in parallel across CPU cores and **skip tiles whose font / active `colors.toml` / layout haven’t changed** — reopen is near-instant. On par with Omarchy’s stock Style carousels. |
 
 ### Why a Style picker for fonts?
 
