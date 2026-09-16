@@ -17,7 +17,7 @@ Stock Omarchy never sets a console font. Recent
 **Console font** locales menu that lists every `*.gz` under
 `/usr/share/kbd/consolefonts` (default `default8x16`, auto-straps
 `terminus-font` for `ter-*`). Dumping that whole list into Style would be
-hundreds of codepage relics and slow mockups.
+hundreds of codepage relics and a uselessly huge carousel.
 
 OmaTTY keeps a curated Terminus-first set, renders each with the **actual
 bitmap glyphs**, and applies with sudo the same way Style → Unlock / Boot
@@ -111,9 +111,15 @@ Or from a checkout:
 omarchy plugin enable io.github.alxwolfenstein97.omatty
 ```
 
-**Needs:** Omarchy’s image picker, Python 3 with Pillow (`python-pillow`),
-`kbd` (`setfont`), and sudo for apply. `terminus-font` is pulled when you pick
-a Terminus face.
+**Needs (installer pulls these if missing):**
+
+| Package | Why |
+|---------|-----|
+| `python-pillow` | Rasterises real PSF glyphs into Style → TTY Fonts tiles. Without it mockups fail and the carousel looks empty. |
+
+Also needs Omarchy’s image picker, `kbd` (`setfont`), and sudo for apply.
+`terminus-font` is pulled when you pick a Terminus face (on demand).
+`install.sh` installs Pillow **before** warming mockups.
 
 ## How it works
 
@@ -158,7 +164,8 @@ archinstall’s menu is exhaustive on purpose. For a Style carousel we only keep
 faces you can tell apart at a glance: the Arch default, two useful kbd fonts,
 and every Terminus Unicode size/weight the package ships. Missing `ter-*`
 tiles still show a placeholder that says the package will be installed on
-apply. ~20 mockups warm in a couple of seconds.
+apply. Mockups warm in parallel across CPU cores — same snappy open as the
+other Style extenders.
 
 ## Check
 
