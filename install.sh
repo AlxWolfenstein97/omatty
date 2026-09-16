@@ -2,6 +2,7 @@
 #
 # OmaTTY installer. Safe to re-run: rewrites menu + starship TTY wiring.
 # Does NOT change /etc/vconsole.conf until you pick a font (sudo).
+# Pulls python-pillow + terminus-font so every curated tile is a real mockup.
 #
 # Flags:
 #   --quiet   less chatter (used by the shell service on startup)
@@ -43,8 +44,10 @@ ensure_pkg() {
   fi
 }
 
-# Pillow rasterises real PSF glyphs into Style tiles — install before warming.
+# Pillow rasterises real PSF glyphs; terminus-font ships the ter-v* faces the
+# carousel shows — install both before warming so every tile is a real mockup.
 ensure_pkg python-pillow "draws Style → TTY Fonts mockups from real console fonts"
+ensure_pkg terminus-font "Terminus console faces for Style → TTY Fonts"
 
 "$here/bin/omatty" install-menu
 omarchy-shell -q omarchy.menu refresh >/dev/null 2>&1 || true
@@ -60,5 +63,5 @@ if command -v omarchy >/dev/null 2>&1; then
 fi
 
 note "done — Style > TTY Fonts, or '$here/bin/omatty switcher'"
-note "applying prompts for sudo in a floating terminal; terminus-font installs on demand"
+note "applying prompts for sudo in a floating terminal"
 exit 0

@@ -15,13 +15,13 @@ Big fat Terminus clamps whip the TTY the way bitmap consoles used to.
 Stock Omarchy never sets a console font. Recent
 [archinstall](https://github.com/archlinux/archinstall) builds expose a
 **Console font** locales menu that lists every `*.gz` under
-`/usr/share/kbd/consolefonts` (default `default8x16`, auto-straps
-`terminus-font` for `ter-*`). Dumping that whole list into Style would be
+`/usr/share/kbd/consolefonts` (default `default8x16`, and Terminus when
+`terminus-font` is around). Dumping that whole list into Style would be
 hundreds of codepage relics and a uselessly huge carousel.
 
-OmaTTY keeps a curated Terminus-first set, renders each with the **actual
-bitmap glyphs**, and applies with sudo the same way Style → Unlock / Boot
-Themes do.
+OmaTTY keeps a curated Terminus-first set, pulls `terminus-font` on install so
+every tile is a **real** mockup (no “pick blind, install later” dance), and
+applies with sudo the same way Style → Unlock / Boot Themes do.
 
 ## Goals (and honest limits)
 
@@ -60,7 +60,7 @@ faster than applying each one and hopping to Ctrl+Alt+F3. Pair with
   viewport. Side effects on TUIs are real — fewer cells is fewer cells — and
   the mockup shows that on purpose (watch the passthrough path get eaten).
 - **Every `ter-v*` weight the package ships** — 12–32, normal **and** bold
-  (no `ter-v12b` upstream). On-demand `terminus-font` install when you pick one.
+  (no `ter-v12b` upstream). `terminus-font` is installed up front.
 - **Safe `vconsole.conf` patch** — only `FONT=` (inside `# omatty` markers).
   `KEYMAP` / XKB stay untouched.
 - **TTY-safe Starship** — Omarchy’s desktop prompt glyphs will tofu on a
@@ -117,18 +117,24 @@ omarchy plugin enable io.github.alxwolfenstein97.omatty
 | Package | Why |
 |---------|-----|
 | `python-pillow` | Rasterises real PSF glyphs into Style → TTY Fonts tiles. Without it mockups fail and the carousel looks empty. |
+| `terminus-font` | Terminus `ter-v*` console faces the curated picker shows. Without it those tiles cannot render. |
 
 Also needs Omarchy’s image picker, `kbd` (`setfont`), and sudo for apply.
-`terminus-font` is pulled when you pick a Terminus face (on demand).
-`install.sh` installs Pillow **before** warming mockups.
+`install.sh` installs both packages **before** warming mockups.
+
+**Font-menu side effect:** pulling `terminus-font` also registers Terminus under
+Omarchy’s graphical **Fonts** menu (same class of package fallout as Courier New
+showing up after you install `ttf-ms-fonts` for LibreOffice). Fine for the TTY —
+a bad idea to pick for the desktop when Omarchy already runs JetBrains Mono Nerd
+(and friends). Console face ≠ UI face; leave Style → Fonts alone for Terminus.
 
 ## How it works
 
 1. `bin/omatty-switcher` renders PNGs into `~/.cache/omarchy/omatty/previews/`,
    busts the image-selector thumbnail cache, then opens `omarchy-menu-images`.
 2. On selection, Style launches a floating terminal running `omatty-set`
-   (same privilege pattern as Unlock): may install `terminus-font`, patches
-   `/etc/vconsole.conf`, restarts `systemd-vconsole-setup`, refreshes mockups.
+   (same privilege pattern as Unlock): patches `/etc/vconsole.conf`, restarts
+   `systemd-vconsole-setup`.
 3. Install also drops the Starship TTY profile + bashrc snippet.
 
 CLI:
@@ -153,7 +159,7 @@ doubles whatever face is loaded (horizontal + vertical).
 | `omarchy plugin disable …` | Shell service stops. No theme-set hook here — last `FONT=` / starship TTY wiring stay until you uninstall. |
 | `./uninstall.sh` then disable / remove | Menu, bashrc snippet, `~/.config/omarchy/omatty/`, cache/state, and managed `FONT=` block gone (sudo). Shared packages stay. |
 | `omarchy pkg drop python-pillow` | Optional. Only if nothing else on the machine needs Pillow. |
-| `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces. |
+| `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces (and can live with it vanishing from the Fonts menu too). |
 
 **Full wipe** — copy-paste to remove plugin wiring *and* packages this plugin may
 have pulled (skip a `pkg drop` line if something else still needs that package):
@@ -168,13 +174,12 @@ omarchy pkg drop terminus-font
 
 ## Why not every console font?
 
-archinstall’s menu is exhaustive on purpose. For a Style carousel we only keep
-faces you can tell apart at a glance: the Arch default, two useful kbd fonts,
-and every Terminus Unicode size/weight the package ships. Missing `ter-*`
-tiles still show a placeholder that says the package will be installed on
-apply. Mockups warm in parallel across CPU cores and **skip tiles whose font /
-active `colors.toml` / layout haven’t changed** — same snappy reopen as the
-other Style extenders.
+archinstall’s Console font menu is exhaustive on purpose. For a Style carousel we
+only keep faces you can tell apart at a glance: the Arch default, two useful kbd
+fonts, and every Terminus Unicode size/weight the package ships — not a full
+archinstall clone, just the part that earns its keep. Mockups warm in parallel
+across CPU cores and **skip tiles whose font / active `colors.toml` / layout
+haven’t changed** — same snappy reopen as the other Style extenders.
 
 ## Check
 
@@ -192,8 +197,8 @@ bash ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/check.sh
   [OmaOBS](https://github.com/AlxWolfenstein97/omaobs),
   [OmaCursor](https://github.com/AlxWolfenstein97/omacursor),
   [Chroma](https://github.com/AlxWolfenstein97/chroma).
-- [archinstall](https://github.com/archlinux/archinstall) Console font menu /
-  `terminus-font` auto-strap.
+- [archinstall](https://github.com/archlinux/archinstall) Console font menu —
+  inspiration for surfacing Terminus sizes without dumping every `*.gz`.
 - [Omarchy](https://omarchy.org/) — Style menu image picker and floating-terminal
   sudo pattern.
 

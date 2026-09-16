@@ -5,6 +5,7 @@ Curates the fonts people actually pick on Arch (stock default + Terminus
 sizes, matching what recent archinstall Console-font menus surface via
 terminus-font), renders each as a fake virtual-console mockup from the
 real PSF glyphs, and writes FONT= into /etc/vconsole.conf (sudo).
+terminus-font is installed up front so every carousel tile is a real face.
 
 Also ships a TTY-safe starship profile so Omarchy's fancy prompt glyphs
 do not tofu on a bitmap console.
@@ -73,119 +74,102 @@ CURATED: list[dict[str, str]] = [
         "label": "Terminus 12",
         "file": "ter-v12n",
         "blurb": "terminus-font · compact (no bold in package)",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v14n",
         "label": "Terminus 14",
         "file": "ter-v14n",
         "blurb": "terminus-font",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v14b",
         "label": "Terminus 14 Bold",
         "file": "ter-v14b",
         "blurb": "terminus-font · bold",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v16n",
         "label": "Terminus 16",
         "file": "ter-v16n",
         "blurb": "terminus-font · classic",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v16b",
         "label": "Terminus 16 Bold",
         "file": "ter-v16b",
         "blurb": "terminus-font · bold",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v18n",
         "label": "Terminus 18",
         "file": "ter-v18n",
         "blurb": "terminus-font",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v18b",
         "label": "Terminus 18 Bold",
         "file": "ter-v18b",
         "blurb": "terminus-font · bold",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v20n",
         "label": "Terminus 20",
         "file": "ter-v20n",
         "blurb": "terminus-font",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v20b",
         "label": "Terminus 20 Bold",
         "file": "ter-v20b",
         "blurb": "terminus-font · bold",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v22n",
         "label": "Terminus 22",
         "file": "ter-v22n",
         "blurb": "terminus-font",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v22b",
         "label": "Terminus 22 Bold",
         "file": "ter-v22b",
         "blurb": "terminus-font · bold",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v24n",
         "label": "Terminus 24",
         "file": "ter-v24n",
         "blurb": "terminus-font · roomy",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v24b",
         "label": "Terminus 24 Bold",
         "file": "ter-v24b",
         "blurb": "terminus-font · bold",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v28n",
         "label": "Terminus 28",
         "file": "ter-v28n",
         "blurb": "terminus-font",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v28b",
         "label": "Terminus 28 Bold",
         "file": "ter-v28b",
         "blurb": "terminus-font · bold",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v32n",
         "label": "Terminus 32",
         "file": "ter-v32n",
         "blurb": "terminus-font · HiDPI TTY",
-        "pkg": "terminus-font",
     },
     {
         "id": "ter-v32b",
         "label": "Terminus 32 Bold",
         "file": "ter-v32b",
         "blurb": "terminus-font · HiDPI bold",
-        "pkg": "terminus-font",
     },
 ]
 
@@ -645,9 +629,9 @@ def save_png_atomic(img: Image.Image, dest: Path) -> None:
     """Write PNG via rename so the preview directory mtime updates.
 
     omarchy-menu-images keys its fast rows-cache on the *directory* mtime.
-    Pillow's in-place overwrite does not touch that, so after terminus-font
-    lands the carousel keeps serving stale "Not installed" thumbnails across
-    reboots. A replace() updates the directory entry and busts that cache.
+    Pillow's in-place overwrite does not touch that, so regenerated tiles can
+    keep looking stale across reboots. A replace() updates the directory entry
+    and busts that cache.
     """
     dest.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix=f".{dest.name}.", suffix=".png", dir=dest.parent)
@@ -744,7 +728,9 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
     if item is None:
         raise FileNotFoundError(f"unknown curated font: {font_id}")
     if resolve_font_file(item["file"]) is None:
-        return render_missing_mockup(font_id, dest or preview_path(font_id))
+        raise FileNotFoundError(
+            f"console font not installed: {item['file']} (install terminus-font?)"
+        )
 
     font = load_console_font(item["file"])
     colors = theme_colors()
@@ -828,28 +814,6 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
     draw.text((safe_x, h - 28), badge, font=ui_sm, fill=muted)
 
     dest = dest or preview_path(font_id)
-    save_png_atomic(img, dest)
-    return dest
-
-
-def render_missing_mockup(font_id: str, dest: Path) -> Path:
-    item = CURATED_BY_ID.get(font_id, {"label": font_id, "blurb": "", "pkg": ""})
-    colors = theme_colors()
-    bg = _hex_rgb(colors["bg"])
-    fg = _hex_rgb(colors["fg"])
-    accent = _hex_rgb(colors["accent"])
-    muted = _hex_rgb(colors["muted"])
-    w, h = 1536, 864
-    img = Image.new("RGB", (w, h), bg)
-    draw = ImageDraw.Draw(img)
-    ui = try_ui_font(28)
-    ui_sm = try_ui_font(20)
-    draw.text((120, 48), f"TTY · {item.get('label', font_id)}", font=ui, fill=accent)
-    draw.text((120, 100), item.get("blurb", ""), font=ui_sm, fill=muted)
-    pkg = item.get("pkg") or "terminus-font"
-    draw.text((120, 280), "Not installed on this system yet.", font=ui, fill=fg)
-    draw.text((120, 340), f"Pick it and OmaTTY will install {pkg},", font=ui_sm, fill=fg)
-    draw.text((120, 380), "then set FONT= in /etc/vconsole.conf.", font=ui_sm, fill=fg)
     save_png_atomic(img, dest)
     return dest
 
@@ -1015,28 +979,6 @@ def patch_vconsole(existing: str, font_stem: str) -> str:
     return text
 
 
-def ensure_package(pkg: str) -> None:
-    if not pkg:
-        return
-    probe = subprocess.run(
-        ["pacman", "-Q", pkg],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if probe.returncode == 0:
-        return
-    note(f"installing {pkg}…")
-    runners: list[list[str]] = []
-    if subprocess.run(["bash", "-lc", "command -v omarchy"], capture_output=True).returncode == 0:
-        runners.append(["omarchy", "pkg", "add", pkg])
-    runners.append(["sudo", "pacman", "-S", "--needed", "--noconfirm", pkg])
-    for cmd in runners:
-        result = subprocess.run(cmd, check=False)
-        if result.returncode == 0:
-            return
-    raise RuntimeError(f"failed to install package: {pkg}")
-
 def apply_setfont(font_stem: str) -> None:
     """Push the font to active virtual consoles when possible (best-effort).
 
@@ -1072,17 +1014,8 @@ def set_font(font_id: str, *, quiet: bool = False, dry_run: bool = False) -> int
         return 1
 
     if resolve_font_file(item["file"]) is None:
-        pkg = item.get("pkg")
-        if not pkg:
-            note(f"font file missing and no package mapping: {font_id}")
-            return 1
-        if dry_run:
-            note(f"would install {pkg} then set FONT={item['file']}")
-            return 0
-        ensure_package(pkg)
-        if resolve_font_file(item["file"]) is None:
-            note(f"font still missing after installing {pkg}: {item['file']}")
-            return 1
+        note(f"font file missing: {item['file']} (is terminus-font installed?)")
+        return 1
 
     existing = read_vconsole()
     patched = patch_vconsole(existing, item["file"])
@@ -1099,13 +1032,6 @@ def set_font(font_id: str, *, quiet: bool = False, dry_run: bool = False) -> int
 
     # Keep the TTY starship profile in place whenever a console font is set.
     install_starship_tty(quiet=True)
-
-    # Refresh mockups + bust image-selector cache so Style → TTY Fonts does not
-    # keep showing the pre-install "Not installed" thumbnails.
-    try:
-        generate_all_previews()
-    except Exception as exc:  # noqa: BLE001 — apply already succeeded
-        note(f"preview refresh skipped: {exc}")
 
     if not quiet:
         note(f"vconsole.conf FONT={item['file']}")

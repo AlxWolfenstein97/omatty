@@ -18,7 +18,7 @@ mkdir -p "$tmp/consolefonts" "$tmp/state" "$tmp/cache" \
   "$tmp/.config/omarchy/extensions" "$tmp/.config/omarchy/omatty"
 
 # Copy a couple of real fonts into the fake consolefonts dir.
-for stem in default8x16 Lat2-Terminus16 eurlatgr; do
+for stem in default8x16 Lat2-Terminus16 eurlatgr ter-v16n; do
   for ext in psfu.gz psf.gz psfu psf; do
     src="/usr/share/kbd/consolefonts/${stem}.${ext}"
     if [[ -f $src ]]; then
@@ -93,11 +93,17 @@ else
   bad "preview png"
 fi
 
-# Missing terminus entry still renders a placeholder mockup.
-if "$here/bin/omatty" preview ter-v16n >/dev/null; then
-  [[ -f $tmp/cache/previews/ter-v16n.png ]] && pass "missing-font placeholder" || bad "missing-font placeholder"
+# Terminus tile renders real PSF glyphs when the face is present (install pulls
+# terminus-font; check copies one face into the fixture when available).
+if [[ -f $tmp/consolefonts/ter-v16n.psfu.gz || -f $tmp/consolefonts/ter-v16n.psf.gz \
+   || -f $tmp/consolefonts/ter-v16n.psfu || -f $tmp/consolefonts/ter-v16n.psf ]]; then
+  if "$here/bin/omatty" preview ter-v16n >/dev/null; then
+    [[ -f $tmp/cache/previews/ter-v16n.png ]] && pass "terminus preview png" || bad "terminus preview png"
+  else
+    bad "terminus preview png"
+  fi
 else
-  bad "missing-font placeholder"
+  pass "terminus preview skipped (no ter-v16n in fixture)"
 fi
 
 # dry-run does not touch the file
