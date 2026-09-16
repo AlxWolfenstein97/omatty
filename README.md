@@ -145,24 +145,19 @@ omatty current
 Want even larger glyphs on a live console without changing `FONT=`? `setfont -d`
 doubles whatever face is loaded (horizontal + vertical).
 
-## Remove
+## Disable vs remove
+
+| Action | What happens |
+|--------|----------------|
+| `omarchy plugin disable …` | Shell service stops. No theme-set hook here — last `FONT=` / starship TTY wiring stay until you uninstall. |
+| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, `~/.config/omarchy/omatty/`, cache/state, and managed `FONT=` block gone (sudo). Shared packages stay. |
+| `omarchy pkg drop python-pillow` | Optional. Only if nothing else on the machine needs Pillow. |
+| `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces. |
 
 ```sh
 ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/uninstall.sh
 omarchy plugin disable io.github.alxwolfenstein97.omatty
 omarchy plugin remove io.github.alxwolfenstein97.omatty
-```
-
-Uninstall is a clean slate: menu row, bashrc starship snippet,
-`~/.config/omarchy/omatty/` (including `starship-tty.toml`), cache/state, and
-the managed `FONT=` block in `vconsole.conf` (sudo).
-
-Shared packages stay installed (fonts / imaging libs other tools may use).
-Optional wipe:
-
-```sh
-omarchy pkg drop python-pillow    # only if nothing else needs Pillow
-omarchy pkg drop terminus-font    # only if you no longer want Terminus console faces
 ```
 
 ## Why not every console font?
