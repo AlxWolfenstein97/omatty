@@ -167,7 +167,11 @@ doubles whatever face is loaded (horizontal + vertical).
 | Action | What happens |
 |--------|----------------|
 | `omarchy plugin disable …` | Shell service stops. No theme-set hook here — last `FONT=` / starship TTY wiring stay until you uninstall. |
-| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, `~/.config/omarchy/omatty/`, cache/state, and managed `FONT=` block gone (sudo). Shared packages stay. |
+| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, `~/.config/omarchy/omatty/`, cache/state, and managed `FONT=` block gone (**sudo required** for vconsole, same class as Style → Unlock themes staying until changed). If sudo fails non-interactively, opens one floating terminal best-effort. Shared packages stay. Leaves a state tombstone so Service `--quiet` cannot resurrect the menu. |
+
+Quiet Service install no longer re-pulls Pillow/Terminus or opens floating sudo
+(deps are interactive-only), and skips shell menu refresh/rescan to avoid boot
+“strokes”.
 | `omarchy pkg drop python-pillow` | Optional. Only if nothing else on the machine needs Pillow. |
 | `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces (and can live with it vanishing from the Fonts menu too). |
 
