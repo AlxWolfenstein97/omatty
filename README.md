@@ -209,6 +209,7 @@ bash ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/check.sh
   [OmaVT](https://github.com/AlxWolfenstein97/omavt),
   [OmaOBS](https://github.com/AlxWolfenstein97/omaobs),
   [OmaCursor](https://github.com/AlxWolfenstein97/omacursor),
+  [OmaHud](https://github.com/AlxWolfenstein97/omahud),
   [Chroma](https://github.com/AlxWolfenstein97/chroma).
 - [archinstall](https://github.com/archlinux/archinstall) Console font menu —
   inspiration for surfacing Terminus sizes without dumping every `*.gz`.
