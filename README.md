@@ -8,9 +8,10 @@ Ctrl+Alt+F3 — real PSF mockups in the Style menu, then `FONT=` in
 
 Built first for **accessibility** — low vision, a mostly-blind bastard who still
 wants a usable virtual console, HiDPI / 1440p+ glass where `default8x16` is
-squint-land, and the kind of session where you drop into a single-GPU
-passthrough VM curator or read kernel logs after the desktop has gone away.
-Big fat Terminus clamps whip the TTY the way bitmap consoles used to.
+squint-land, and reading kernel logs on Ctrl+Alt+F3 after the desktop has gone
+away. Big fat Terminus clamps whip the TTY the way bitmap consoles used to.
+(We do **not** claim to fix console size quirks after GPU passthrough → SDDM →
+Hypr round-trips; that path often needs a session restart.)
 
 Stock Omarchy never sets a console font. Recent
 [archinstall](https://github.com/archlinux/archinstall) builds expose a
@@ -167,11 +168,10 @@ doubles whatever face is loaded (horizontal + vertical).
 | Action | What happens |
 |--------|----------------|
 | `omarchy plugin disable …` | Shell service stops. No theme-set hook here — last `FONT=` / starship TTY wiring stay until you uninstall. |
-| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, `~/.config/omarchy/omatty/`, cache/state, and managed `FONT=` block gone (**sudo required** for vconsole, same class as Style → Unlock themes staying until changed). If sudo fails non-interactively, opens one floating terminal best-effort. Shared packages stay. Leaves a state tombstone so Service `--quiet` cannot resurrect the menu. |
+| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, `~/.config/omarchy/omatty/`, cache/state gone; best-effort clear of managed `FONT=` (**sudo**). Same class as Style → Unlock: console font may stay until you pick stock again — no floating-terminal retry. Shared packages stay. Leaves a state tombstone so Service `--quiet` cannot resurrect the menu. Refresh + `rescanPlugins` so the shell drops the row. |
 
-Quiet Service install no longer re-pulls Pillow/Terminus or opens floating sudo
-(deps are interactive-only), and skips shell menu refresh/rescan to avoid boot
-“strokes”.
+Quiet Service install: one-shot package prompt, menu written only if `// omatty:start`
+markers are missing (no rewrite every boot).
 | `omarchy pkg drop python-pillow` | Optional. Only if nothing else on the machine needs Pillow. |
 | `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces (and can live with it vanishing from the Fonts menu too). |
 
