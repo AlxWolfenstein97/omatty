@@ -38,8 +38,8 @@ chmod 755 "$here"/bin/* "$here/check.sh" \
 
 export OMATTY_PLUGIN_DIR="$here"
 
-# Packages need sudo. Interactive install can ask in this TTY; Service --quiet
-# must not open floating sudo — deps are interactive-only.
+# Packages need sudo. Interactive install asks in this TTY; Service --quiet
+# opens one floating terminal once (pkgs-prompted) — not again every boot.
 pull_pkgs() {
   local -a missing=()
   local pkg
@@ -85,14 +85,9 @@ pull_pkgs() {
 
 # Pillow rasterises real PSF glyphs; terminus-font ships the ter-v* faces the
 # carousel shows — install both before warming so every tile is a real mockup.
-if (( quiet )); then
-  for pkg in python-pillow terminus-font; do
-    pacman -Q "$pkg" &>/dev/null \
-      || warn "missing $pkg — re-run install.sh interactively (or: omarchy pkg add $pkg)"
-  done
-else
-  pull_pkgs python-pillow terminus-font || true
-fi
+# Interactive: ask in this TTY. Quiet/Service: one floating terminal once
+# (pkgs-prompted), never again on later boots if dismissed.
+pull_pkgs python-pillow terminus-font || true
 
 # Style extenders all rewrite the same extensions file. Shell-service --quiet
 # starts them in parallel — flock so we don't clobber each other's rows.
