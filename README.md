@@ -216,7 +216,7 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 | Action | What happens |
 |--------|----------------|
 | `omarchy plugin disable …` | Shell service stops. No theme-set hook — last `FONT=` / DRM reapply udev stay. |
-| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, config/cache/state gone. Floater runs `omatty clear` (drops `FONT=`, live `setfont default8x16` so the TTY is not stuck fat) + udev teardown. Optional y/N `pkg drop`. |
+| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, config/cache/state gone. Floater drops DRM udev first, then `omatty clear` (strips `FONT=`, forces live `setfont default8x16` even with no FONT= left — so the TTY is not stuck fat). Optional y/N `pkg drop`. |
 | `omarchy pkg drop python-pillow` | Optional. Only if nothing else needs Pillow. Offered in the uninstall floater. |
 | `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces. |
 

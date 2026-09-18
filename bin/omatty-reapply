@@ -15,7 +15,9 @@
 # Opt-in: OMATTY_REAPPLY_ALL=1 or --all-vts for a manual chvt pass when SDDM
 # is stopped (nested VM tests, cold console-only sessions).
 #
-# Safe as root (udev) or via sudo. No-op when FONT= is unset.
+# Safe as root (udev) or via sudo. No-op when FONT= is unset and no stem given.
+# Optional stem: omatty-reapply [--quiet] default8x16  — used by `omatty clear`
+# so live faces reset even after FONT= was stripped from vconsole.conf.
 set -euo pipefail
 
 conf="${OMATTY_VCONSOLE:-/etc/vconsole.conf}"
@@ -23,31 +25,39 @@ fonts_dir="${OMATTY_CONSOLEFONTS:-/usr/share/kbd/consolefonts}"
 vt_max="${OMATTY_VT_MAX:-6}"
 quiet=0
 all_vts=0
+font=
 [[ ${OMATTY_REAPPLY_ALL:-0} == 1 ]] && all_vts=1
 for arg in "$@"; do
   case $arg in
     --quiet|-q) quiet=1 ;;
     --all-vts|--all) all_vts=1 ;;
+    -*) ;; # ignore unknown flags
+    *)
+      # First non-flag arg is an explicit font stem (overrides vconsole FONT=).
+      [[ -z $font ]] && font=$arg
+      ;;
   esac
 done
 
 note() { (( quiet )) || printf 'omatty-reapply: %s\n' "$1" >&2; }
 
-[[ -f $conf ]] || exit 0
-
-font=
-while IFS= read -r line || [[ -n $line ]]; do
-  case $line in
-    FONT=*)
-      font=${line#FONT=}
-      font=${font#\"}
-      font=${font%\"}
-      font=${font#\'}
-      font=${font%\'}
-      break
-      ;;
-  esac
-done <"$conf"
+# udev / reapply with no stem: read FONT= from conf. Explicit stem skips this
+# (clear must still setfont after wiping the managed block).
+if [[ -z $font ]]; then
+  [[ -f $conf ]] || exit 0
+  while IFS= read -r line || [[ -n $line ]]; do
+    case $line in
+      FONT=*)
+        font=${line#FONT=}
+        font=${font#\"}
+        font=${font%\"}
+        font=${font#\'}
+        font=${font%\'}
+        break
+        ;;
+    esac
+  done <"$conf"
+fi
 
 [[ -n $font ]] || exit 0
 

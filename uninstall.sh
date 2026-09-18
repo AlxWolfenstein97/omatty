@@ -36,14 +36,15 @@ launch_cleanup_floater() {
     printf '%s\n' "printf '%s\n' '  • /usr/local/lib/omatty/reapply (if present)'"
     printf '%s\n' "printf '%s\n' '────────────────────────────────'"
     printf '%s\n' "printf '%s\n' ''"
-    printf '%s\n' "if $(printf '%q ' "$here/bin/omatty" clear); then"
-    printf '%s\n' "  printf 'vconsole FONT= cleared + live face → default8x16\n'"
-    printf '%s\n' 'else'
-    printf '%s\n' "  printf 'clear failed — FONT= may still be set\n' >&2"
-    printf '%s\n' 'fi'
+    # Drop DRM udev first so a card-add cannot re-push the old face mid-clear.
     printf '%s\n' "sudo bash -c 'rm -f /etc/udev/rules.d/99-omatty-reapply.rules; rm -f /usr/local/lib/omatty/reapply; rmdir /usr/local/lib/omatty 2>/dev/null || true; udevadm control --reload-rules >/dev/null 2>&1 || true' \\"
     printf '%s\n' "  && printf 'DRM reapply udev removed\n' \\"
     printf '%s\n' "  || printf 'udev teardown failed — remove 99-omatty-reapply.rules by hand\n' >&2"
+    printf '%s\n' "if $(printf '%q ' "$here/bin/omatty" clear); then"
+    printf '%s\n' "  printf 'vconsole FONT= cleared + live face → default8x16\n'"
+    printf '%s\n' 'else'
+    printf '%s\n' "  printf 'clear failed — FONT= may still be set; try: sudo setfont default8x16\n' >&2"
+    printf '%s\n' 'fi'
 
 # --- itemized optional drops (scan installed; one y/N each) ---
     if ((${#have[@]})); then
@@ -56,8 +57,9 @@ launch_cleanup_floater() {
             printf '%s\n' "printf '%s\n' ''"
             printf '%s\n' "printf '%s\n' 'python-pillow'"
             printf '%s\n' "printf '%s\n' '  Used by Style carousel plugins (OmaBoot/OmaVT/OmaOBS/OmaHud/OmaCursor/OmaTTY).'"
-            printf '%s\n' "printf '%s\n' '  MangoHud/goverlay and other apps may also depend on it.'"
-            printf '%s\n' "printf '%s\n' '  Removing it breaks Style mockups until reinstalled; clear/uninstall still work without it.'"
+            printf '%s\n' "printf '%s\n' '  MangoHud → python-matplotlib → pillow; goverlay → MangoHud. Lutris may too.'"
+            printf '%s\n' "printf '%s\n' '  Removing breaks Style mockups until reinstalled; clear/uninstall still work without it.'"
+            printf '%s\n' "printf '%s\n' '  If drop fails because those still need it — that is fine; keep Pillow.'"
             printf '%s\n' "req=\$(pacman -Qi python-pillow 2>/dev/null | awk -F': ' '/^Required By/{print \$2}')"
             printf '%s\n' "printf '  pacman Required By: %s\n' \"\${req:-none}\""
             printf '%s\n' "read -r -p 'Drop python-pillow? [y/N] ' a"

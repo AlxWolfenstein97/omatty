@@ -1000,10 +1000,12 @@ def apply_setfont(font_stem: str) -> None:
         text=True,
     )
     # Prefer the retrying helper (same path udev uses after DRM card add).
+    # Always pass font_stem — after `clear` strips FONT=, a stem-less reapply
+    # would no-op and leave the live VT stuck on fat Terminus.
     helper = plugin_dir() / "bin" / "omatty-reapply"
     if helper.is_file():
         subprocess.run(
-            ["sudo", str(helper), "--quiet"],
+            ["sudo", str(helper), "--quiet", font_stem],
             check=False,
             capture_output=True,
             text=True,
