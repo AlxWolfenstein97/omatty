@@ -188,8 +188,8 @@ Want even larger glyphs on a live console without changing `FONT=`? `setfont -d`
 doubles whatever face is loaded (horizontal + vertical).
 
 Install does **not** force the DRM udev rule — optional for single-GPU / VFIO
-hops only. Interactive install asks y/N; quiet Service never pops a udev floater.
-Arm later anytime:
+hops only. The package floater asks y/N in the **same** window as Pillow/Terminus
+(default No; Done closes normally). Arm later anytime:
 
 ```sh
 omatty install-drm
@@ -220,8 +220,10 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 | `omarchy pkg drop python-pillow` | Optional. Only if nothing else needs Pillow. Offered in the uninstall floater. |
 | `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces. |
 
-Quiet Service install: package floater once; menu + `rescanPlugins` so Style → TTY
-Fonts shows without a manual shell restart; DRM udev skipped unless already
+Quiet Service install: one floater for missing packages **and** optional DRM y/N;
+shared Pillow claim under flock so parallel Style plugins do not each spam a
+Pillow install; menu + `rescanPlugins` so Style → TTY Fonts shows without a
+manual shell restart; DRM udev skipped unless already
 passwordless or you run `omatty install-drm`.
 
 **Full wipe:**

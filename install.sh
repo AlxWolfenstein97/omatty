@@ -153,89 +153,210 @@ EOF
   return 1
 }
 
-install_drm_reapply || true
+# DRM y/N lives in the package floater (pull_pkgs) for normal install.
+# --with-drm-reapply / omatty install-drm still force install_drm_reapply.
+if (( with_drm )); then
+  install_drm_reapply || true
+fi
 
-# Packages need sudo. Interactive: header in this TTY. Service --quiet:
-# one headed floating terminal once (pkgs-prompted). Headers name this plugin,
-# what it does, and why each package is missing.
+# Packages + optional DRM in one floater. Shared python-pillow claimed under
+# flock. DRM is y/N (default N) in the same window — close via Done, no smash.
 pull_pkgs() {
   local -a missing=()
   local pkg
+  local style_rt="${XDG_RUNTIME_DIR:-/tmp}/omarchy-style-extenders"
+  local shared_ledger="$style_rt/shared-pkgs-claimed"
+  local claim_tmp
+  local want_drm=0
+  local helper_src="$here/bin/omatty-reapply"
+  local helper_dst="/usr/local/lib/omatty/reapply"
+  local rule_src="$here/udev/99-omatty-reapply.rules"
+  local rule_dst="/etc/udev/rules.d/99-omatty-reapply.rules"
+  mkdir -p "$style_rt" "$runtime_dir" "$state"
+
   for pkg in "$@"; do
     pacman -Q "$pkg" &>/dev/null || missing+=("$pkg")
   done
-  if ((${#missing[@]} == 0)); then
+
+  if [[ -f $helper_src && -f $rule_src ]] \
+      && [[ ! -f $rule_dst || ! -x $helper_dst ]] \
+      && [[ ! -f $state/udev-skipped ]] \
+      && (( ! with_drm )); then
+    want_drm=1
+  fi
+  # --with-drm-reapply forces install via install_drm_reapply; not this prompt.
+
+  if ((${#missing[@]})); then
+    claim_tmp=$(mktemp)
+    (
+      flock 8
+      local claimed=""
+      [[ -f $shared_ledger ]] && claimed=$(cat "$shared_ledger" 2>/dev/null || true)
+      local -a still=()
+      for pkg in "${missing[@]}"; do
+        if [[ $pkg == python-pillow ]] && grep -qxF python-pillow <<<"$claimed"; then
+          continue
+        fi
+        still+=("$pkg")
+        if [[ $pkg == python-pillow ]]; then
+          printf '%s\n' python-pillow >>"$shared_ledger"
+        fi
+      done
+      printf '%s\n' "${still[@]}" >"$claim_tmp"
+    ) 8>"$style_rt/pkgs.lock"
+    mapfile -t missing <"$claim_tmp"
+    rm -f "$claim_tmp"
+    local -a cleaned=()
+    for pkg in "${missing[@]}"; do
+      [[ -n $pkg ]] && cleaned+=("$pkg")
+    done
+    missing=("${cleaned[@]}")
+  fi
+
+  if ((${#missing[@]} == 0)) && (( ! want_drm )); then
     rm -f "$pkgs_stamp"
     return 0
   fi
 
-  if ! command -v omarchy >/dev/null 2>&1; then
+  if ((${#missing[@]})) && ! command -v omarchy >/dev/null 2>&1; then
     warn "OmaTTY needs ${missing[*]} for: Style → TTY Fonts — console font mockups + FONT= — install manually: pacman -S ${missing[*]}"
     return 1
   fi
 
-  note "OmaTTY needs ${missing[*]} — Style → TTY Fonts — console font mockups + FONT="
-  if (( ! quiet )) && [[ -t 0 || -t 1 ]]; then
-    printf '%s\n' "OmaTTY"
-    printf '%s\n' "io.github.alxwolfenstein97.omatty"
-    printf '%s\n' "Style → TTY Fonts — console font mockups + FONT="
-    printf '%s\n' "────────────────────────────────"
-    printf '%s\n' "Needs to install (sudo / pacman):"
-    for pkg in "${missing[@]}"; do
-      case $pkg in
-        python-pillow) printf '  • %s — %s\n' "$pkg" 'draw TTY Fonts PSF carousel mockups' ;;
-        terminus-font) printf '  • %s — %s\n' "$pkg" 'Terminus faces shown in TTY Fonts' ;;
-        *) printf '  • %s\n' "$pkg" ;;
-      esac
-    done
-    printf '%s\n' "────────────────────────────────"
-    printf '%s\n' ""
-    if omarchy pkg add "${missing[@]}"; then
-      rm -f "$pkgs_stamp"
-      return 0
-    fi
-    warn "OmaTTY could not install: ${missing[*]}"
-    return 1
+  ((${#missing[@]})) && note "OmaTTY needs ${missing[*]} — Style → TTY Fonts — console font mockups + FONT="
+
+  # Build optional DRM sudo body once (scanned — only if paths missing).
+  local drm_script=""
+  if (( want_drm )); then
+    drm_script=$(cat <<EOF
+set -euo pipefail
+install -d -m 755 /usr/local/lib/omatty
+install -m 755 $(printf %q "$helper_src") $(printf %q "$helper_dst")
+install -m 644 $(printf %q "$rule_src") $(printf %q "$rule_dst")
+udevadm control --reload-rules >/dev/null 2>&1 || true
+EOF
+)
   fi
 
-  if [[ -f $pkgs_stamp ]]; then
-    warn "OmaTTY still missing ${missing[*]} (Style → TTY Fonts — console font mockups + FONT=) — run: omarchy pkg add ${missing[*]}"
+  if (( ! quiet )) && [[ -t 0 || -t 1 ]]; then
+    if ((${#missing[@]})); then
+      printf '%s\n' "OmaTTY"
+      printf '%s\n' "io.github.alxwolfenstein97.omatty"
+      printf '%s\n' "Style → TTY Fonts — console font mockups + FONT="
+      printf '%s\n' "────────────────────────────────"
+      printf '%s\n' "Needs to install (sudo / pacman) — only packages missing on this system:"
+      for pkg in "${missing[@]}"; do
+        case $pkg in
+          python-pillow) printf '  • %s — %s\n' "$pkg" 'draw TTY Fonts PSF carousel mockups' ;;
+          terminus-font) printf '  • %s — %s\n' "$pkg" 'Terminus faces shown in TTY Fonts' ;;
+          *) printf '  • %s\n' "$pkg" ;;
+        esac
+      done
+      printf '%s\n' "────────────────────────────────"
+      printf '%s\n' ""
+      if ! omarchy pkg add "${missing[@]}"; then
+        warn "OmaTTY could not install: ${missing[*]}"
+        return 1
+      fi
+      rm -f "$pkgs_stamp"
+    fi
+    if (( want_drm )); then
+      printf '%s\n' ""
+      printf '%s\n' "Optional — DRM font reapply (single-GPU / VFIO only):"
+      printf '%s\n' "  • /usr/local/lib/omatty/reapply"
+      printf '%s\n' "  • /etc/udev/rules.d/99-omatty-reapply.rules"
+      printf '%s\n' "Skip if you never hop a GPU to a VM. Style → TTY Fonts still works."
+      local ans=
+      read -r -p "Install optional DRM reapply udev now? [y/N] " ans || true
+      case $ans in
+        [yY]|[yY][eE][sS])
+          if sudo bash -c "$drm_script"; then
+            rm -f "$state/udev-skipped"
+            note "DRM reapply udev armed"
+          else
+            warn "DRM udev install failed — later: omatty install-drm"
+          fi
+          ;;
+        *)
+          touch "$state/udev-skipped"
+          note "skipped DRM reapply — later: omatty install-drm"
+          ;;
+      esac
+    fi
+    return 0
+  fi
+
+  # Quiet: one floater for pkgs and/or DRM y/N.
+  # pkgs_stamp only gates package re-prompts (not DRM-only).
+  if ((${#missing[@]})) && [[ -f $pkgs_stamp ]]; then
+    warn "OmaTTY still missing ${missing[*]} — run: omarchy pkg add ${missing[*]}"
     return 1
   fi
-  mkdir -p "$state"
+  local drm_stamp="$runtime_dir/drm-prompted"
+  if ((${#missing[@]} == 0)) && (( want_drm )) && [[ -f $drm_stamp ]]; then
+    return 0
+  fi
   mkdir -p "$runtime_dir"
-  touch "$pkgs_stamp"
+  ((${#missing[@]})) && touch "$pkgs_stamp"
+  (( want_drm )) && touch "$drm_stamp"
   local script="$state/install-floater.sh"
   {
     printf '%s\n' '#!/usr/bin/env bash' 'set -uo pipefail'
-    printf '%s\n' "printf '%s\\n' 'OmaTTY'"
-    printf '%s\n' "printf '%s\\n' 'io.github.alxwolfenstein97.omatty'"
-    printf '%s\n' "printf '%s\\n' 'Style → TTY Fonts — console font mockups + FONT='"
-    printf '%s\n' "printf '%s\\n' '────────────────────────────────'"
-    printf '%s\n' "printf '%s\\n' 'Needs to install (sudo / pacman):'"
-    for pkg in "${missing[@]}"; do
-      case $pkg in
-        python-pillow) printf '%s\n' "printf '  • %s — %s\n' 'python-pillow' 'draw TTY Fonts PSF carousel mockups'" ;;
-        terminus-font) printf '%s\n' "printf '  • %s — %s\n' 'terminus-font' 'Terminus faces shown in TTY Fonts'" ;;
-        *) printf '%s\n' "printf '  • %s\n' $(printf %q "$pkg")" ;;
-      esac
-    done
-    printf '%s\n' "printf '%s\\n' '────────────────────────────────'"
-    printf '%s\n' "printf '%s\\n' ''"
-    printf '%s\n' "omarchy pkg add ${missing[*]}"
-    if [[ -n ${PULL_PKGS_AFTER:-} ]]; then
-      printf '%s\n' "$PULL_PKGS_AFTER"
+    printf '%s\n' "printf '%s\n' 'OmaTTY'"
+    printf '%s\n' "printf '%s\n' 'io.github.alxwolfenstein97.omatty'"
+    printf '%s\n' "printf '%s\n' 'Style → TTY Fonts — console font mockups + FONT='"
+    printf '%s\n' "printf '%s\n' '────────────────────────────────'"
+    if ((${#missing[@]})); then
+      printf '%s\n' "printf '%s\n' 'Needs to install (sudo / pacman) — only packages missing on this system:'"
+      for pkg in "${missing[@]}"; do
+        case $pkg in
+          python-pillow) printf '%s\n' "printf '  • %s — %s\n' 'python-pillow' 'draw TTY Fonts PSF carousel mockups'" ;;
+          terminus-font) printf '%s\n' "printf '  • %s — %s\n' 'terminus-font' 'Terminus faces shown in TTY Fonts'" ;;
+          *) printf '%s\n' "printf '  • %s\n' $(printf %q "$pkg")" ;;
+        esac
+      done
+      printf '%s\n' "printf '%s\n' '────────────────────────────────'"
+      printf '%s\n' "printf '%s\n' ''"
+      printf '%s\n' "omarchy pkg add ${missing[*]}"
+    else
+      printf '%s\n' "printf '%s\n' 'Packages: nothing missing on this system.'"
+    fi
+    if (( want_drm )); then
+      printf '%s\n' "printf '%s\n' ''"
+      printf '%s\n' "printf '%s\n' 'Optional — DRM font reapply (single-GPU / VFIO only)'"
+      printf '%s\n' "printf '%s\n' '  • /usr/local/lib/omatty/reapply — setfont helper on DRM card-add'"
+      printf '%s\n' "printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules'"
+      printf '%s\n' "printf '%s\n' 'Default is No. Answer n or press Enter to skip; then Done closes this window.'"
+      printf '%s\n' "printf '%s\n' 'Later: omatty install-drm'"
+      printf '%s\n' "read -r -p 'Install optional DRM reapply udev now? [y/N] ' ans || true"
+      printf '%s\n' "case \$ans in"
+      printf '%s\n' "  [yY]|[yY][eE][sS])"
+      printf '%s\n' "    if sudo bash -c $(printf %q "$drm_script"); then"
+      printf '%s\n' "      rm -f $(printf %q "$state/udev-skipped")"
+      printf '%s\n' "      printf 'DRM reapply udev armed\n'"
+      printf '%s\n' "    else"
+      printf '%s\n' "      printf 'DRM udev install failed — later: omatty install-drm\n' >&2"
+      printf '%s\n' "    fi"
+      printf '%s\n' "    ;;"
+      printf '%s\n' "  *)"
+      printf '%s\n' "    mkdir -p $(printf %q "$state")"
+      printf '%s\n' "    touch $(printf %q "$state/udev-skipped")"
+      printf '%s\n' "    printf 'skipped DRM reapply\n'"
+      printf '%s\n' "    ;;"
+      printf '%s\n' "esac"
     fi
   } >"$script"
   chmod 755 "$script"
   if command -v omarchy-launch-floating-terminal-with-presentation >/dev/null 2>&1; then
-    warn "OmaTTY missing ${missing[*]} (Style → TTY Fonts — console font mockups + FONT=) — opening floating terminal"
+    warn "OmaTTY install floater (packages / optional DRM) — opening floating terminal"
     omarchy-launch-floating-terminal-with-presentation "bash $(printf %q "$script")" >/dev/null 2>&1 &
   else
-    warn "OmaTTY: run omarchy pkg add ${missing[*]}"
+    ((${#missing[@]})) && warn "OmaTTY: run omarchy pkg add ${missing[*]}"
+    (( want_drm )) && warn "OmaTTY: optional DRM — omatty install-drm"
   fi
   return 1
 }
+
 
 
 
