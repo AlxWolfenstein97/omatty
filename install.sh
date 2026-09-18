@@ -71,10 +71,12 @@ EOF
   floater=$(cat <<EOF
 set -uo pipefail
 printf '%s\n' 'OmaTTY — DRM font reapply'
+printf '%s\n' 'io.github.alxwolfenstein97.omatty'
+printf '%s\n' 'Style → TTY Fonts — re-push FONT= after GPU passthrough'
 printf '%s\n' '────────────────────────────────'
-printf '%s\n' 'Will install (sudo):'
-printf '%s\n' '  • /usr/local/lib/omatty/reapply'
-printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules'
+printf '%s\n' 'Needs to install (sudo):'
+printf '%s\n' '  • /usr/local/lib/omatty/reapply — setfont helper for DRM card-add'
+printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules — fires helper on GPU return'
 printf '%s\n' '────────────────────────────────'
 printf '%s\n' ''
 sudo bash -c $(printf %q "$script")
@@ -88,7 +90,7 @@ EOF
     fi
     # One floating prompt once — same pattern as package pulls.
     if [[ -f $state/udev-prompted ]]; then
-      warn "DRM reapply udev not installed — run install.sh interactively or: sudo bash -c $(printf %q "$script")"
+      warn "OmaTTY still missing DRM reapply udev (Style → TTY Fonts after GPU passthrough) — run install.sh interactively or: sudo bash -c $(printf %q "$script")"
       return 1
     fi
     mkdir -p "$state"
@@ -100,7 +102,7 @@ EOF
     } >"$udev_script"
     chmod 755 "$udev_script"
     if command -v omarchy-launch-floating-terminal-with-presentation >/dev/null 2>&1; then
-      warn "sudo needed for DRM font reapply udev — opening a floating terminal"
+      warn "OmaTTY needs DRM reapply udev (Style → TTY Fonts after GPU passthrough) — opening floating terminal"
       omarchy-launch-floating-terminal-with-presentation \
         "bash $(printf %q "$udev_script")" >/dev/null 2>&1 &
     else
@@ -110,10 +112,12 @@ EOF
   fi
 
   printf '%s\n' 'OmaTTY — DRM font reapply'
+  printf '%s\n' 'io.github.alxwolfenstein97.omatty'
+  printf '%s\n' 'Style → TTY Fonts — re-push FONT= after GPU passthrough'
   printf '%s\n' '────────────────────────────────'
-  printf '%s\n' 'Will install (sudo):'
-  printf '%s\n' '  • /usr/local/lib/omatty/reapply'
-  printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules'
+  printf '%s\n' 'Needs to install (sudo):'
+  printf '%s\n' '  • /usr/local/lib/omatty/reapply — setfont helper for DRM card-add'
+  printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules — fires helper on GPU return'
   printf '%s\n' '────────────────────────────────'
   printf '%s\n' ""
   if sudo bash -c "$script"; then
@@ -121,15 +125,15 @@ EOF
     note "DRM card-add → setfont reapply armed (/etc/udev/rules.d/99-omatty-reapply.rules)"
     return 0
   fi
-  warn "could not install DRM reapply udev (sudo denied) — Style → TTY Fonts still works live"
+  warn "OmaTTY could not install DRM reapply udev (sudo denied) — Style → TTY Fonts still works live"
   return 1
 }
 
 install_drm_reapply || true
 
-# Packages need sudo. Interactive install asks in this TTY; Service --quiet
-# opens one floating terminal once (pkgs-prompted) — not again every boot.
-# Floater prints a header of what will be installed before the password prompt.
+# Packages need sudo. Interactive: header in this TTY. Service --quiet:
+# one headed floating terminal once (pkgs-prompted). Headers name this plugin,
+# what it does, and why each package is missing.
 pull_pkgs() {
   local -a missing=()
   local pkg
@@ -142,21 +146,21 @@ pull_pkgs() {
   fi
 
   if ! command -v omarchy >/dev/null 2>&1; then
-    warn "install manually: pacman -S ${missing[*]}"
+    warn "OmaTTY needs ${missing[*]} for: Style → TTY Fonts — console font mockups + FONT= — install manually: pacman -S ${missing[*]}"
     return 1
   fi
 
-  note "installing ${missing[*]}"
+  note "OmaTTY needs ${missing[*]} — Style → TTY Fonts — console font mockups + FONT="
   if (( ! quiet )) && [[ -t 0 || -t 1 ]]; then
-    printf '%s\n' "OmaTTY — packages"
+    printf '%s\n' "OmaTTY"
+    printf '%s\n' "io.github.alxwolfenstein97.omatty"
+    printf '%s\n' "Style → TTY Fonts — console font mockups + FONT="
     printf '%s\n' "────────────────────────────────"
-    printf '%s\n' "Will install (sudo / pacman):"
+    printf '%s\n' "Needs to install (sudo / pacman):"
     for pkg in "${missing[@]}"; do
       case $pkg in
-        python-pillow) printf '  • %s — %s\n' "$pkg" "Style carousel mockups" ;;
-        python-numpy) printf '  • %s — %s\n' "$pkg" "fast Adwaita cursor remaps" ;;
-        terminus-font) printf '  • %s — %s\n' "$pkg" "Terminus console faces for TTY Fonts" ;;
-        adw-gtk-theme) printf '  • %s — %s\n' "$pkg" "GTK theme Chroma paints" ;;
+        python-pillow) printf '  • %s — %s\n' "$pkg" 'draw TTY Fonts PSF carousel mockups' ;;
+        terminus-font) printf '  • %s — %s\n' "$pkg" 'Terminus faces shown in TTY Fonts' ;;
         *) printf '  • %s\n' "$pkg" ;;
       esac
     done
@@ -166,12 +170,12 @@ pull_pkgs() {
       rm -f "$state/pkgs-prompted"
       return 0
     fi
-    warn "could not install: ${missing[*]}"
+    warn "OmaTTY could not install: ${missing[*]}"
     return 1
   fi
 
   if [[ -f $state/pkgs-prompted ]]; then
-    warn "still missing ${missing[*]} — run: omarchy pkg add ${missing[*]}"
+    warn "OmaTTY still missing ${missing[*]} (Style → TTY Fonts — console font mockups + FONT=) — run: omarchy pkg add ${missing[*]}"
     return 1
   fi
   mkdir -p "$state"
@@ -179,20 +183,20 @@ pull_pkgs() {
   local script="$state/install-floater.sh"
   {
     printf '%s\n' '#!/usr/bin/env bash' 'set -uo pipefail'
-    printf '%s\n' "printf '%s\n' 'OmaTTY — packages'"
-    printf '%s\n' "printf '%s\n' '────────────────────────────────'"
-    printf '%s\n' "printf '%s\n' 'Will install (sudo / pacman):'"
+    printf '%s\n' "printf '%s\\n' 'OmaTTY'"
+    printf '%s\n' "printf '%s\\n' 'io.github.alxwolfenstein97.omatty'"
+    printf '%s\n' "printf '%s\\n' 'Style → TTY Fonts — console font mockups + FONT='"
+    printf '%s\n' "printf '%s\\n' '────────────────────────────────'"
+    printf '%s\n' "printf '%s\\n' 'Needs to install (sudo / pacman):'"
     for pkg in "${missing[@]}"; do
       case $pkg in
-        python-pillow) printf '%s\n' "printf '  • %s — %s\n' 'python-pillow' 'Style carousel mockups'" ;;
-        python-numpy) printf '%s\n' "printf '  • %s — %s\n' 'python-numpy' 'fast Adwaita cursor remaps'" ;;
-        terminus-font) printf '%s\n' "printf '  • %s — %s\n' 'terminus-font' 'Terminus console faces for TTY Fonts'" ;;
-        adw-gtk-theme) printf '%s\n' "printf '  • %s — %s\n' 'adw-gtk-theme' 'GTK theme Chroma paints'" ;;
+        python-pillow) printf '%s\n' "printf '  • %s — %s\n' 'python-pillow' 'draw TTY Fonts PSF carousel mockups'" ;;
+        terminus-font) printf '%s\n' "printf '  • %s — %s\n' 'terminus-font' 'Terminus faces shown in TTY Fonts'" ;;
         *) printf '%s\n' "printf '  • %s\n' $(printf %q "$pkg")" ;;
       esac
     done
-    printf '%s\n' "printf '%s\n' '────────────────────────────────'"
-    printf '%s\n' "printf '%s\n' ''"
+    printf '%s\n' "printf '%s\\n' '────────────────────────────────'"
+    printf '%s\n' "printf '%s\\n' ''"
     printf '%s\n' "omarchy pkg add ${missing[*]}"
     if [[ -n ${PULL_PKGS_AFTER:-} ]]; then
       printf '%s\n' "$PULL_PKGS_AFTER"
@@ -200,13 +204,14 @@ pull_pkgs() {
   } >"$script"
   chmod 755 "$script"
   if command -v omarchy-launch-floating-terminal-with-presentation >/dev/null 2>&1; then
-    warn "sudo needed for ${missing[*]} — opening a floating terminal"
+    warn "OmaTTY missing ${missing[*]} (Style → TTY Fonts — console font mockups + FONT=) — opening floating terminal"
     omarchy-launch-floating-terminal-with-presentation "bash $(printf %q "$script")" >/dev/null 2>&1 &
   else
-    warn "run: omarchy pkg add ${missing[*]}"
+    warn "OmaTTY: run omarchy pkg add ${missing[*]}"
   fi
   return 1
 }
+
 
 
 # Pillow rasterises real PSF glyphs; terminus-font ships the ter-v* faces the
