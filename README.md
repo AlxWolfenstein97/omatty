@@ -181,6 +181,7 @@ omatty set ter-v32b         # apply (sudo)
 omatty set ter-v32b --dry-run
 omatty reapply              # setfont again from current FONT= (sudo; active VT)
 omatty reapply --all-vts    # optional chvt sweep — only with SDDM stopped
+omatty clear                # drop FONT=, live default8x16, refresh initramfs (sudo)
 omatty current
 ```
 
@@ -202,15 +203,21 @@ omatty install-drm
 
 ```sh
 omarchy plugin add https://github.com/AlxWolfenstein97/omatty.git --enable
-# install.sh pulls pillow + terminus-font (sudo); DRM udev is optional (y/N or skip)
-# Style → TTY Fonts should appear without a shell restart
-# Style → TTY Fonts → pick ter-v32b; Ctrl+Alt+F3 should be fat
+# Floater: pillow + terminus (scanned); optional DRM y/N in the same window (default N)
+# Style → TTY Fonts appears without a shell restart
+# Pick ter-v32b → floater runs limine-mkinitcpio; Ctrl+Alt+F3 fat; reboot → LUKS/early TTY fat too
 omatty current
 omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 
 # Optional VFIO path:
 #   omatty install-drm
 #   ls /etc/udev/rules.d/99-omatty-reapply.rules /usr/local/lib/omatty/reapply
+
+# Skip install floater → logout/reboot → one floater again (shell restart does not re-nag)
+# ./uninstall.sh → floater: udev off, clear FONT=, setfont default8x16, limine-mkinitcpio, optional pkg drop
+#   reboot → unlock + TTY back to stock size (encrypted and plain)
+# Skip remove floater + disable → reinstall → uninstall again → go through floater once
+# Pillow drop with mangohud/goverlay installed → fails Required By; that is fine
 ```
 
 ## Disable vs remove
