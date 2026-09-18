@@ -187,49 +187,48 @@ omatty current
 Want even larger glyphs on a live console without changing `FONT=`? `setfont -d`
 doubles whatever face is loaded (horizontal + vertical).
 
-Install also drops `/etc/udev/rules.d/99-omatty-reapply.rules` so a DRM `card*`
-add (GPU back from VFIO) re-runs the **active-VT** `setfont` poke (no `chvt`).
+Install does **not** force the DRM udev rule — optional for single-GPU / VFIO
+hops only. Interactive install asks y/N; quiet Service never pops a udev floater.
+Arm later anytime:
+
+```sh
+omatty install-drm
+# or: ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/install.sh --with-drm-reapply
+```
 
 ## Fresh VM smoke test
 
 ```sh
 omarchy plugin add https://github.com/AlxWolfenstein97/omatty.git --enable
-# install.sh pulls pillow + terminus-font (sudo) and asks for the DRM udev rule
-ls /etc/udev/rules.d/99-omatty-reapply.rules /usr/local/lib/omatty/reapply
-# Style → TTY Fonts → pick ter-v32b (or similar); Ctrl+Alt+F3 should be fat
+# install.sh pulls pillow + terminus-font (sudo); DRM udev is optional (y/N or skip)
+# Style → TTY Fonts should appear without a shell restart
+# Style → TTY Fonts → pick ter-v32b; Ctrl+Alt+F3 should be fat
 omatty current
 omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 
-# Single-GPU / vm-curator: leave VM → active VT goes fat; SDDM login must
-# still work (udev must not chvt). After a few hops/reboots, other gettys
-# typically end up fat too via best-effort setfont -C + vconsole on boot.
-
-# Nested VM / SDDM stopped only (optional full sweep):
-#   systemctl stop sddm
-#   omatty reapply --all-vts
-#   systemctl start sddm
+# Optional VFIO path:
+#   omatty install-drm
+#   ls /etc/udev/rules.d/99-omatty-reapply.rules /usr/local/lib/omatty/reapply
 ```
+
 ## Disable vs remove
 
 | Action | What happens |
 |--------|----------------|
 | `omarchy plugin disable …` | Shell service stops. No theme-set hook — last `FONT=` / DRM reapply udev stay. |
-| `./uninstall.sh` then disable / remove | Menu, bashrc starship snippet, config/cache/state gone. Tombstone + disable **first**. Then a **floating terminal** runs `omatty clear` + DRM udev teardown (sudo) — we clean up our extras. Same floater offers y/N `pkg drop`. |
+| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, config/cache/state gone. Floater runs `omatty clear` (drops `FONT=`, live `setfont default8x16` so the TTY is not stuck fat) + udev teardown. Optional y/N `pkg drop`. |
 | `omarchy pkg drop python-pillow` | Optional. Only if nothing else needs Pillow. Offered in the uninstall floater. |
 | `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces. |
 
-Quiet Service install: one-shot package prompt; menu written only if `// omatty:start`
-markers are missing; also scrubs orphan Style rows for sibling plugins removed
-without `uninstall.sh`.
-
-Omarchy `plugin remove` never runs `uninstall.sh` — always `./uninstall.sh` first
-so the floater can clear `FONT=` / udev.
+Quiet Service install: package floater once; menu + `rescanPlugins` so Style → TTY
+Fonts shows without a manual shell restart; DRM udev skipped unless already
+passwordless or you run `omatty install-drm`.
 
 **Full wipe:**
 
 ```sh
 ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/uninstall.sh
-# floater: omatty clear + udev teardown + optional pkg drop
+# floater: clear FONT= + live default8x16 + udev teardown + optional pkg drop
 omarchy plugin remove io.github.alxwolfenstein97.omatty
 ```
 

@@ -12,9 +12,11 @@ set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 quiet=0
+with_drm=0
 for arg in "$@"; do
   case $arg in
     --quiet) quiet=1 ;;
+    --with-drm-reapply|--with-drm) with_drm=1 ;;
   esac
 done
 
@@ -40,8 +42,9 @@ chmod 755 "$here"/bin/* "$here/check.sh" \
 export OMATTY_PLUGIN_DIR="$here"
 
 # After GPU passthrough the DRM card comes back and fbcon often resets to a
-# tiny default *before* SDDM. systemd-vconsole-setup frequently skips busy
-# VTs; direct setfont still works. Install a udev rule that re-pushes FONT=.
+# tiny default *before* SDDM. Optional — not everyone does single-GPU VFIO.
+# Quiet Service never pops a floater for this (pkgs floater is enough noise).
+# Arm later: ./install.sh --with-drm-reapply   or   omatty install-drm
 install_drm_reapply() {
   local helper_src="$here/bin/omatty-reapply"
   local helper_dst="/usr/local/lib/omatty/reapply"
@@ -51,6 +54,7 @@ install_drm_reapply() {
 
   if [[ -x $helper_dst ]] && cmp -s "$helper_src" "$helper_dst" 2>/dev/null \
       && [[ -f $rule_dst ]] && cmp -s "$rule_src" "$rule_dst" 2>/dev/null; then
+    rm -f "$state/udev-skipped"
     return 0
   fi
 
@@ -64,64 +68,80 @@ udevadm control --reload-rules >/dev/null 2>&1 || true
 EOF
 )
 
-  # Header + sudo — the system paths need root. Quiet Service used to launch
-  # the install body *without* sudo, which failed with "cannot create directory
-  # /usr/local/lib/omatty".
-  local floater
-  floater=$(cat <<EOF
-set -uo pipefail
-printf '%s\n' 'OmaTTY — DRM font reapply'
-printf '%s\n' 'io.github.alxwolfenstein97.omatty'
-printf '%s\n' 'Style → TTY Fonts — re-push FONT= after GPU passthrough'
-printf '%s\n' '────────────────────────────────'
-printf '%s\n' 'Needs to install (sudo):'
-printf '%s\n' '  • /usr/local/lib/omatty/reapply — setfont helper for DRM card-add'
-printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules — fires helper on GPU return'
-printf '%s\n' '────────────────────────────────'
-printf '%s\n' ''
-sudo bash -c $(printf %q "$script")
-EOF
-)
+  print_drm_header() {
+    printf '%s\n' 'OmaTTY — DRM font reapply (optional)'
+    printf '%s\n' 'io.github.alxwolfenstein97.omatty'
+    printf '%s\n' 'Style → TTY Fonts — re-push FONT= after GPU passthrough / VFIO'
+    printf '%s\n' '────────────────────────────────'
+    printf '%s\n' 'Needs to install (sudo) — only useful if you hop GPUs to a VM:'
+    printf '%s\n' '  • /usr/local/lib/omatty/reapply — setfont helper for DRM card-add'
+    printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules — fires helper on GPU return'
+    printf '%s\n' '────────────────────────────────'
+    printf '%s\n' 'Skip if you never do single-GPU passthrough. Style → TTY Fonts still works.'
+    printf '%s\n' ''
+  }
 
-  if (( quiet )); then
+  # Quiet: passwordless sudo only, or explicit --with-drm-reapply. No floater —
+  # closing a surprise udev prompt left peeps stuck with no later path.
+  if (( quiet )) && (( ! with_drm )); then
     if sudo -n bash -c "$script" >/dev/null 2>&1; then
+      rm -f "$state/udev-skipped"
       note "DRM reapply udev armed (passwordless sudo)"
       return 0
     fi
-    # One floating prompt once — same pattern as package pulls.
-    if [[ -f $state/udev-prompted ]]; then
-      warn "OmaTTY still missing DRM reapply udev (Style → TTY Fonts after GPU passthrough) — run install.sh interactively or: sudo bash -c $(printf %q "$script")"
-      return 1
-    fi
     mkdir -p "$state"
-    touch "$state/udev-prompted"
+    touch "$state/udev-skipped"
+    warn "OmaTTY DRM reapply udev not armed (optional; single-GPU / VFIO only)"
+    warn "  later: $here/install.sh --with-drm-reapply"
+    warn "  or:    $here/bin/omatty install-drm"
+    return 0
+  fi
+
+  if (( quiet )) && (( with_drm )); then
     local udev_script="$state/udev-floater.sh"
+    mkdir -p "$state"
     {
-      printf '%s\n' '#!/usr/bin/env bash'
-      printf '%s\n' "$floater"
+      printf '%s\n' '#!/usr/bin/env bash' 'set -uo pipefail'
+      printf '%s\n' "printf '%s\n' 'OmaTTY — DRM font reapply (optional)'"
+      printf '%s\n' "printf '%s\n' 'io.github.alxwolfenstein97.omatty'"
+      printf '%s\n' "printf '%s\n' 'Style → TTY Fonts — re-push FONT= after GPU passthrough / VFIO'"
+      printf '%s\n' "printf '%s\n' '────────────────────────────────'"
+      printf '%s\n' "printf '%s\n' 'Needs to install (sudo) — only useful if you hop GPUs to a VM:'"
+      printf '%s\n' "printf '%s\n' '  • /usr/local/lib/omatty/reapply — setfont helper for DRM card-add'"
+      printf '%s\n' "printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules — fires helper on GPU return'"
+      printf '%s\n' "printf '%s\n' '────────────────────────────────'"
+      printf '%s\n' "printf '%s\n' ''"
+      printf '%s\n' "sudo bash -c $(printf %q "$script")"
     } >"$udev_script"
     chmod 755 "$udev_script"
     if command -v omarchy-launch-floating-terminal-with-presentation >/dev/null 2>&1; then
-      warn "OmaTTY needs DRM reapply udev (Style → TTY Fonts after GPU passthrough) — opening floating terminal"
+      warn "OmaTTY installing optional DRM reapply udev — opening floating terminal"
       omarchy-launch-floating-terminal-with-presentation \
         "bash $(printf %q "$udev_script")" >/dev/null 2>&1 &
     else
-      warn "run (sudo): install DRM reapply — $here/install.sh"
+      warn "run: sudo bash -c $(printf %q "$script")"
     fi
-    return 1
+    return 0
   fi
 
-  printf '%s\n' 'OmaTTY — DRM font reapply'
-  printf '%s\n' 'io.github.alxwolfenstein97.omatty'
-  printf '%s\n' 'Style → TTY Fonts — re-push FONT= after GPU passthrough'
-  printf '%s\n' '────────────────────────────────'
-  printf '%s\n' 'Needs to install (sudo):'
-  printf '%s\n' '  • /usr/local/lib/omatty/reapply — setfont helper for DRM card-add'
-  printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules — fires helper on GPU return'
-  printf '%s\n' '────────────────────────────────'
-  printf '%s\n' ""
+  # Interactive: ask unless --with-drm-reapply.
+  print_drm_header
+  if (( ! with_drm )); then
+    local ans=
+    read -r -p "Install optional DRM reapply udev now? [y/N] " ans || true
+    case $ans in
+      [yY]|[yY][eE][sS]) ;;
+      *)
+        mkdir -p "$state"
+        touch "$state/udev-skipped"
+        note "skipped DRM reapply udev — later: $here/install.sh --with-drm-reapply"
+        note "  or: $here/bin/omatty install-drm"
+        return 0
+        ;;
+    esac
+  fi
   if sudo bash -c "$script"; then
-    rm -f "$state/udev-prompted"
+    rm -f "$state/udev-skipped" "$state/udev-prompted"
     note "DRM card-add → setfont reapply armed (/etc/udev/rules.d/99-omatty-reapply.rules)"
     return 0
   fi
@@ -285,9 +305,9 @@ ORPHANSCRUB
           if (( do_refresh )); then
             touch "$stamp"
             omarchy-shell -q omarchy.menu refresh >/dev/null 2>&1 || true
-            if (( ! quiet )); then
-              omarchy-shell -q shell rescanPlugins >/dev/null 2>&1 || true
-            fi
+            # Quiet Service installs need rescan too — otherwise Style rows
+            # (esp. OBS Themes) stay invisible until a manual shell restart.
+            omarchy-shell -q shell rescanPlugins >/dev/null 2>&1 || true
           fi
         fi
       fi
@@ -305,6 +325,7 @@ ORPHANSCRUB
       stamp="$HOME/.local/state/omarchy/style-extenders/menu.refresh"
       touch "$stamp"
       omarchy-shell -q omarchy.menu refresh >/dev/null 2>&1 || true
+      omarchy-shell -q shell rescanPlugins >/dev/null 2>&1 || true
     fi
   fi
 ) 9>"$menu_lock"

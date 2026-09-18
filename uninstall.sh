@@ -31,12 +31,13 @@ launch_cleanup_floater() {
     printf '%s\n' "printf '%s\n' '────────────────────────────────'"
     printf '%s\n' "printf '%s\n' 'Will remove / reset (sudo):'"
     printf '%s\n' "printf '%s\n' '  • managed FONT= block in /etc/vconsole.conf'"
-    printf '%s\n' "printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules'"
-    printf '%s\n' "printf '%s\n' '  • /usr/local/lib/omatty/reapply'"
+    printf '%s\n' "printf '%s\n' '  • live setfont → default8x16 (so the TTY is not stuck fat)'"
+    printf '%s\n' "printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules (if present)'"
+    printf '%s\n' "printf '%s\n' '  • /usr/local/lib/omatty/reapply (if present)'"
     printf '%s\n' "printf '%s\n' '────────────────────────────────'"
     printf '%s\n' "printf '%s\n' ''"
     printf '%s\n' "if $(printf '%q ' "$here/bin/omatty" clear); then"
-    printf '%s\n' "  printf 'vconsole FONT= cleared\n'"
+    printf '%s\n' "  printf 'vconsole FONT= cleared + live face → default8x16\n'"
     printf '%s\n' 'else'
     printf '%s\n' "  printf 'clear failed — FONT= may still be set\n' >&2"
     printf '%s\n' 'fi'

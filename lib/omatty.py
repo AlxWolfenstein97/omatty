@@ -1174,7 +1174,30 @@ def clear_vconsole_font(*, quiet: bool = False) -> None:
 def cmd_clear(args: argparse.Namespace) -> int:
     clear_vconsole_font(quiet=bool(args.quiet))
     uninstall_starship_tty()
+    # Live TTY keeps the last setfont face until we poke a stock face —
+    # clearing vconsole.conf alone leaves fat Terminus on the current VT.
+    if os.environ.get("OMATTY_SKIP_SETFONT") != "1":
+        try:
+            apply_setfont("default8x16")
+            if not args.quiet:
+                note("live console face → default8x16 (stock Omarchy)")
+        except Exception as error:  # noqa: BLE001
+            if not args.quiet:
+                note(f"could not reset live setfont ({error}) — reboot or: sudo setfont default8x16")
     return 0
+
+
+def cmd_install_drm(_: argparse.Namespace) -> int:
+    """Opt-in DRM reapply udev — for single-GPU / VFIO hops only."""
+    installer = plugin_dir() / "install.sh"
+    if not installer.is_file():
+        note(f"missing {installer}")
+        return 1
+    result = subprocess.run(
+        ["bash", str(installer), "--with-drm-reapply"],
+        check=False,
+    )
+    return int(result.returncode)
 
 
 # ---------------------------------------------------------------------------
@@ -1401,7 +1424,10 @@ def build_parser() -> argparse.ArgumentParser:
     setter.add_argument("--dry-run", action="store_true")
     setter.set_defaults(func=cmd_set)
 
-    clear = sub.add_parser("clear", help="Remove omatty FONT= block + starship TTY wiring (sudo for vconsole)")
+    clear = sub.add_parser(
+        "clear",
+        help="Remove omatty FONT= block, reset live setfont to default8x16, drop starship TTY wiring (sudo)",
+    )
     clear.add_argument("--quiet", action="store_true")
     clear.set_defaults(func=cmd_clear)
 
@@ -1416,6 +1442,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="chvt through tty1–N (only with SDDM stopped; refused if greeter/session is up)",
     )
     reapply.set_defaults(func=cmd_reapply)
+
+    sub.add_parser(
+        "install-drm",
+        help="Optional: install DRM card-add → setfont udev (single-GPU / VFIO); same as install.sh --with-drm-reapply",
+    ).set_defaults(func=cmd_install_drm)
 
     sub.add_parser("switcher", help="Open image picker; print chosen font id").set_defaults(
         func=cmd_switcher
