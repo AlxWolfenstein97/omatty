@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 #
-# Menu, starship TTY wiring, cache/state. Opens a floating terminal to clear
-# managed FONT= and tear down DRM reapply udev (sudo) — we clean up our extra
-# console wiring. Optional y/N pkg drop in the same floater.
+# Menu, starship TTY wiring, cache/state. Floating terminal clears FONT= and
+# DRM reapply udev (sudo). Optional y/N pkg drop in the same floater.
 #
 set -euo pipefail
 
@@ -26,22 +25,36 @@ launch_cleanup_floater() {
   mkdir -p "$state"
   {
     printf '%s\n' '#!/usr/bin/env bash' 'set -uo pipefail'
-    printf '%s\n' "printf 'OmaTTY uninstall — clearing managed FONT= + DRM reapply udev (sudo)\\n'"
+    printf '%s\n' "printf '%s\n' 'OmaTTY — uninstall'"
+    printf '%s\n' "printf '%s\n' '────────────────────────────────'"
+    printf '%s\n' "printf '%s\n' 'Will remove / reset (sudo):'"
+    printf '%s\n' "printf '%s\n' '  • managed FONT= block in /etc/vconsole.conf'"
+    printf '%s\n' "printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules'"
+    printf '%s\n' "printf '%s\n' '  • /usr/local/lib/omatty/reapply'"
+    printf '%s\n' "printf '%s\n' '────────────────────────────────'"
+    printf '%s\n' "printf '%s\n' ''"
     printf '%s\n' "if $(printf '%q ' "$here/bin/omatty" clear); then"
-    printf '%s\n' "  printf 'vconsole FONT= cleared\\n'"
+    printf '%s\n' "  printf 'vconsole FONT= cleared\n'"
     printf '%s\n' 'else'
-    printf '%s\n' "  printf 'clear failed — FONT= may still be set\\n' >&2"
+    printf '%s\n' "  printf 'clear failed — FONT= may still be set\n' >&2"
     printf '%s\n' 'fi'
     printf '%s\n' "sudo bash -c 'rm -f /etc/udev/rules.d/99-omatty-reapply.rules; rm -f /usr/local/lib/omatty/reapply; rmdir /usr/local/lib/omatty 2>/dev/null || true; udevadm control --reload-rules >/dev/null 2>&1 || true' \\"
-    printf '%s\n' "  && printf 'DRM reapply udev removed\\n' \\"
-    printf '%s\n' "  || printf 'udev teardown failed — remove 99-omatty-reapply.rules by hand\\n' >&2"
+    printf '%s\n' "  && printf 'DRM reapply udev removed\n' \\"
+    printf '%s\n' "  || printf 'udev teardown failed — remove 99-omatty-reapply.rules by hand\n' >&2"
     if ((${#have[@]})); then
       printf '%s\n' ''
-      printf '%s\n' "printf '\\nOptional: drop shared packages only if nothing else needs them.\\n'"
+      printf '%s\n' "printf '%s\n' 'Optional — drop shared packages only if nothing else needs them:'"
+      for pkg in "${have[@]}"; do
+        case $pkg in
+          python-pillow) printf '%s\n' "printf '  • %s — %s\n' 'python-pillow' 'Style carousel mockups'" ;;
+          terminus-font) printf '%s\n' "printf '  • %s — %s\n' 'terminus-font' 'Terminus console faces'" ;;
+          *) printf '%s\n' "printf '  • %s\n' $(printf %q "$pkg")" ;;
+        esac
+      done
       printf '%s\n' "read -r -p 'Drop ${list}? [y/N] ' a"
       printf '%s\n' 'case $a in'
       printf '%s\n' "  [yY]|[yY][eE][sS]) omarchy pkg drop ${list} ;;"
-      printf '%s\n' "  *) printf 'skipped package drop\\n' ;;"
+      printf '%s\n' "  *) printf 'skipped package drop\n' ;;"
       printf '%s\n' 'esac'
     fi
   } >"$script"
