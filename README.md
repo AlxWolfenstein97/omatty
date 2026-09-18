@@ -213,23 +213,24 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 
 | Action | What happens |
 |--------|----------------|
-| `omarchy plugin disable …` | Shell service stops. No theme-set hook here — last `FONT=` / starship TTY / DRM reapply udev stay until you uninstall. |
-| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, DRM udev, `~/.config/omarchy/omatty/`, cache/state gone; best-effort clear of managed `FONT=` (**sudo**). Same class as Style → Unlock: console font may stay until you pick stock again — no floating-terminal retry. Shared packages stay. Leaves a state tombstone so Service `--quiet` cannot resurrect the menu. Refresh + `rescanPlugins` so the shell drops the row. |
+| `omarchy plugin disable …` | Shell service stops. No theme-set hook — last `FONT=` / DRM reapply udev stay. |
+| `./uninstall.sh` then disable / remove | Menu, bashrc starship snippet, config/cache/state gone. Tombstone + disable **first**. Then a **floating terminal** runs `omatty clear` + DRM udev teardown (sudo) — we clean up our extras. Same floater offers y/N `pkg drop`. |
+| `omarchy pkg drop python-pillow` | Optional. Only if nothing else needs Pillow. Offered in the uninstall floater. |
+| `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces. |
 
-Quiet Service install: one-shot package prompt, menu written only if `// omatty:start`
-markers are missing (no rewrite every boot).
-| `omarchy pkg drop python-pillow` | Optional. Only if nothing else on the machine needs Pillow. |
-| `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces (and can live with it vanishing from the Fonts menu too). |
+Quiet Service install: one-shot package prompt; menu written only if `// omatty:start`
+markers are missing; also scrubs orphan Style rows for sibling plugins removed
+without `uninstall.sh`.
 
-**Full wipe** — copy-paste to remove plugin wiring *and* packages this plugin may
-have pulled (skip a `pkg drop` line if something else still needs that package):
+Omarchy `plugin remove` never runs `uninstall.sh` — always `./uninstall.sh` first
+so the floater can clear `FONT=` / udev.
+
+**Full wipe:**
 
 ```sh
 ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/uninstall.sh
-omarchy plugin disable io.github.alxwolfenstein97.omatty
+# floater: omatty clear + udev teardown + optional pkg drop
 omarchy plugin remove io.github.alxwolfenstein97.omatty
-omarchy pkg drop python-pillow
-omarchy pkg drop terminus-font
 ```
 
 ## Why not every console font?
