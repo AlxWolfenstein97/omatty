@@ -222,7 +222,7 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 
 Quiet Service install: one floater for missing packages **and** optional DRM y/N;
 shared Pillow claim under flock so parallel Style plugins do not each spam a
-Pillow install; menu + `rescanPlugins` so Style → TTY Fonts shows without a
+Pillow install; reinstall after uninstall clears the claim (shell restart does not — intentional); menu + `rescanPlugins` so Style → TTY Fonts shows without a
 manual shell restart; DRM udev skipped unless already
 passwordless or you run `omatty install-drm`.
 
