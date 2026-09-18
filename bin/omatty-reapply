@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# Re-push FONT= from /etc/vconsole.conf onto every text-mode virtual console.
+#
+# Why this exists: after GPU passthrough returns the card, fbcon often resets
+# to a tiny default *before* SDDM/Hypr. systemd-vconsole-setup frequently
+# refuses ("All allocated virtual consoles are busy"). Direct setfont still
+# works — Style → TTY Fonts already does that. This helper is the same poke,
+# for udev (DRM card add) and manual `omatty reapply`.
+#
+# Each VT keeps its own font. Bare setfont only updates the active console;
+# setfont -C on inactive fbcon VTs often fails ("Unable to load such font…")
+# until that VT has been entered. Pre-SDDM we chvt through tty1–N, setfont on
+# each, then return — monitor flip time, all gettys fat. Once a graphical
+# session exists we only poke the active VT (+ best-effort -C) so we do not
+# flash the desktop.
+#
+# Safe as root (udev) or via sudo. No-op when FONT= is unset.
+set -euo pipefail
+
+conf="${OMATTY_VCONSOLE:-/etc/vconsole.conf}"
+fonts_dir="${OMATTY_CONSOLEFONTS:-/usr/share/kbd/consolefonts}"
+vt_max="${OMATTY_VT_MAX:-6}"
+quiet=0
+for arg in "$@"; do
+  case $arg in
+    --quiet|-q) quiet=1 ;;
+  esac
+done
+
+note() { (( quiet )) || printf 'omatty-reapply: %s\n' "$1" >&2; }
+
+[[ -f $conf ]] || exit 0
+
+font=
+while IFS= read -r line || [[ -n $line ]]; do
+  case $line in
+    FONT=*)
+      font=${line#FONT=}
+      font=${font#\"}
+      font=${font%\"}
+      font=${font#\'}
+      font=${font%\'}
+      break
+      ;;
+  esac
+done <"$conf"
+
+[[ -n $font ]] || exit 0
+
+resolve() {
+  local stem=$1
+  local candidate
+  if [[ -f $stem ]]; then
+    printf '%s\n' "$stem"
+    return 0
+  fi
+  for candidate in \
+    "$fonts_dir/${stem}.psfu.gz" \
+    "$fonts_dir/${stem}.psf.gz" \
+    "$fonts_dir/${stem}.psfu" \
+    "$fonts_dir/${stem}.psf" \
+    "$fonts_dir/$stem"
+  do
+    if [[ -f $candidate ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  printf '%s\n' "$stem"
+}
+
+target=$(resolve "$font")
+
+has_graphical_session() {
+  local sid typ
+  # Fast paths: display manager / wayland socket already up.
+  [[ -d /run/sddm || -d /run/lightdm || -d /run/gdm ]] && return 0
+  compgen -G "/run/user/*/wayland-*" >/dev/null 2>&1 && return 0
+  while read -r sid _; do
+    [[ -n $sid ]] || continue
+    typ=$(loginctl show-session "$sid" -p Type --value 2>/dev/null || true)
+    case $typ in
+      wayland|x11|mir) return 0 ;;
+    esac
+  done < <(loginctl list-sessions --no-legend 2>/dev/null || true)
+  return 1
+}
+
+push_active() {
+  local i
+  for i in 1 2 3 4 5 6 7 8; do
+    if setfont "$target" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.35
+  done
+  return 1
+}
+
+push_console() {
+  local console=$1
+  setfont "$target" -C "$console" >/dev/null 2>&1
+}
+
+# --- pre-SDDM / VT-only: visit each getty so fbcon accepts the tall face -----
+if ! has_graphical_session; then
+  cur=
+  if [[ -r /sys/class/tty/tty0/active ]]; then
+    cur=$(cat /sys/class/tty/tty0/active 2>/dev/null || true)
+    cur=${cur#tty}
+  fi
+  [[ -n $cur ]] || cur=$(fgconsole 2>/dev/null || echo 1)
+
+  # DRM bind can race fbcon — brief settle before chvt storm.
+  sleep 0.4
+
+  hit=0
+  n=1
+  while (( n <= vt_max )); do
+    if [[ -c /dev/tty$n ]] && chvt "$n" 2>/dev/null; then
+      # Give fbcon a tick on this VT before loading the PSF.
+      sleep 0.15
+      if setfont "$target" >/dev/null 2>&1; then
+        hit=$((hit + 1))
+      fi
+    fi
+    n=$((n + 1))
+  done
+
+  chvt "$cur" 2>/dev/null || true
+
+  if (( hit > 0 )); then
+    note "setfont $font on $hit VTs (chvt pass, back on tty$cur)"
+    exit 0
+  fi
+  # Fall through to active-only retry.
+fi
+
+# --- graphical session (or chvt pass failed): do not flash the desktop --------
+ok=0
+if push_active; then
+  ok=1
+fi
+
+n=1
+extra=0
+while (( n <= vt_max )); do
+  if [[ -c /dev/tty$n ]] && push_console "/dev/tty$n"; then
+    extra=$((extra + 1))
+    ok=1
+  fi
+  n=$((n + 1))
+done
+
+if (( ok )); then
+  note "setfont $font (active + $extra ttyN; graphical session — no chvt)"
+  exit 0
+fi
+note "setfont failed for $font (fbcon not ready?)"
+exit 1

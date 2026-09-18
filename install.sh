@@ -39,6 +39,64 @@ chmod 755 "$here"/bin/* "$here/check.sh" \
 
 export OMATTY_PLUGIN_DIR="$here"
 
+# After GPU passthrough the DRM card comes back and fbcon often resets to a
+# tiny default *before* SDDM. systemd-vconsole-setup frequently skips busy
+# VTs; direct setfont still works. Install a udev rule that re-pushes FONT=.
+install_drm_reapply() {
+  local helper_src="$here/bin/omatty-reapply"
+  local helper_dst="/usr/local/lib/omatty/reapply"
+  local rule_src="$here/udev/99-omatty-reapply.rules"
+  local rule_dst="/etc/udev/rules.d/99-omatty-reapply.rules"
+  [[ -f $helper_src && -f $rule_src ]] || return 0
+
+  if [[ -x $helper_dst ]] && cmp -s "$helper_src" "$helper_dst" 2>/dev/null \
+      && [[ -f $rule_dst ]] && cmp -s "$rule_src" "$rule_dst" 2>/dev/null; then
+    return 0
+  fi
+
+  local script
+  script=$(cat <<EOF
+set -euo pipefail
+install -d -m 755 /usr/local/lib/omatty
+install -m 755 $(printf %q "$helper_src") $(printf %q "$helper_dst")
+install -m 644 $(printf %q "$rule_src") $(printf %q "$rule_dst")
+udevadm control --reload-rules >/dev/null 2>&1 || true
+EOF
+)
+
+  if (( quiet )); then
+    if sudo -n bash -c "$script" >/dev/null 2>&1; then
+      note "DRM reapply udev armed (passwordless sudo)"
+      return 0
+    fi
+    # One floating prompt once — same pattern as package pulls.
+    if [[ -f $state/udev-prompted ]]; then
+      warn "DRM reapply udev not installed — run install.sh interactively or: sudo bash -c $(printf %q "$script")"
+      return 1
+    fi
+    mkdir -p "$state"
+    touch "$state/udev-prompted"
+    if command -v omarchy-launch-floating-terminal-with-presentation >/dev/null 2>&1; then
+      warn "sudo needed for DRM font reapply udev — opening a floating terminal"
+      omarchy-launch-floating-terminal-with-presentation \
+        "bash -c $(printf %q "$script")" >/dev/null 2>&1 &
+    else
+      warn "run (sudo): install DRM reapply — $here/install.sh"
+    fi
+    return 1
+  fi
+
+  if sudo bash -c "$script"; then
+    rm -f "$state/udev-prompted"
+    note "DRM card-add → setfont reapply armed (/etc/udev/rules.d/99-omatty-reapply.rules)"
+    return 0
+  fi
+  warn "could not install DRM reapply udev (sudo denied) — Style → TTY Fonts still works live"
+  return 1
+}
+
+install_drm_reapply || true
+
 # Packages need sudo. Interactive install asks in this TTY; Service --quiet
 # opens one floating terminal once (pkgs-prompted) — not again every boot.
 pull_pkgs() {

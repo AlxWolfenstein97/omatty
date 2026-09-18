@@ -959,20 +959,56 @@ def apply_setfont(font_stem: str) -> None:
         return
     font_path = resolve_font_file(font_stem)
     target = str(font_path) if font_path else font_stem
-    # systemd unit re-reads vconsole.conf
+    # systemd unit re-reads vconsole.conf — often no-ops when every VT is
+    # "busy" (common right after GPU rebind). setfont still works then.
     subprocess.run(
         ["sudo", "systemctl", "restart", "systemd-vconsole-setup.service"],
         check=False,
         capture_output=True,
         text=True,
     )
-    # Also poke visible TTYs directly — restart alone can miss an open tty.
+    # Prefer the retrying helper (same path udev uses after DRM card add).
+    helper = plugin_dir() / "bin" / "omatty-reapply"
+    if helper.is_file():
+        subprocess.run(
+            ["sudo", str(helper), "--quiet"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        return
     subprocess.run(
         ["sudo", "setfont", target],
         check=False,
         capture_output=True,
         text=True,
     )
+
+
+def cmd_reapply(args: argparse.Namespace) -> int:
+    """Re-push current FONT= without rewriting vconsole.conf (sudo)."""
+    if os.environ.get("OMATTY_SKIP_SETFONT") == "1":
+        return 0
+    helper = plugin_dir() / "bin" / "omatty-reapply"
+    cmd = [str(helper), "--quiet"] if helper.is_file() else None
+    if cmd is None:
+        conf = read_vconsole()
+        match = re.search(r"^FONT=(.*)$", conf, re.M)
+        if not match:
+            if not args.quiet:
+                note("no FONT= in vconsole.conf")
+            return 0
+        stem = match.group(1).strip().strip("\"'")
+        apply_setfont(stem)
+        return 0
+    # Root (udev) can run the helper directly; otherwise sudo.
+    if os.geteuid() == 0:
+        result = subprocess.run(cmd, check=False)
+    else:
+        result = subprocess.run(["sudo", *cmd], check=False)
+    if result.returncode != 0 and not args.quiet:
+        note("reapply failed — fbcon not ready, or no FONT= set")
+    return int(result.returncode)
 
 
 def set_font(font_id: str, *, quiet: bool = False, dry_run: bool = False) -> int:
@@ -1364,6 +1400,13 @@ def build_parser() -> argparse.ArgumentParser:
     clear = sub.add_parser("clear", help="Remove omatty FONT= block + starship TTY wiring (sudo for vconsole)")
     clear.add_argument("--quiet", action="store_true")
     clear.set_defaults(func=cmd_clear)
+
+    reapply = sub.add_parser(
+        "reapply",
+        help="Re-push current FONT= with setfont (sudo; same poke as DRM udev)",
+    )
+    reapply.add_argument("--quiet", action="store_true")
+    reapply.set_defaults(func=cmd_reapply)
 
     sub.add_parser("switcher", help="Open image picker; print chosen font id").set_defaults(
         func=cmd_switcher

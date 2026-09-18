@@ -10,8 +10,16 @@ Built first for **accessibility** — low vision, a mostly-blind bastard who sti
 wants a usable virtual console, HiDPI / 1440p+ glass where `default8x16` is
 squint-land, and reading kernel logs on Ctrl+Alt+F3 after the desktop has gone
 away. Big fat Terminus clamps whip the TTY the way bitmap consoles used to.
-(We do **not** claim to fix console size quirks after GPU passthrough → SDDM →
-Hypr round-trips; that path often needs a session restart.)
+
+**GPU passthrough caveat:** when the card returns from a VM, fbcon often resets
+to a tiny default *before* SDDM/Hypr. `systemd-vconsole-setup` frequently skips
+busy VTs (“All allocated virtual consoles are busy”), and `setfont -C` on an
+*inactive* framebuffer VT often fails until that VT has been entered. OmaTTY’s
+DRM `card*` udev rule re-runs `setfont` from your `FONT=`: **pre-SDDM** it
+`chvt`s through tty1–6 (monitor flip time) so every getty is fat; **once a
+graphical session exists** it only pokes the active VT so the desktop does not
+flash. Style → TTY Fonts / `omatty reapply` use the same helper. Brief tiny
+flash mid-modeset is still possible.
 
 Stock Omarchy never sets a console font. Recent
 [archinstall](https://github.com/archlinux/archinstall) builds expose a
@@ -157,18 +165,40 @@ omatty switcher             # picker → prints font id
 omatty show ter-v32b        # print patched vconsole.conf
 omatty set ter-v32b         # apply (sudo)
 omatty set ter-v32b --dry-run
+omatty reapply              # setfont again from current FONT= (sudo)
 omatty current
 ```
 
 Want even larger glyphs on a live console without changing `FONT=`? `setfont -d`
 doubles whatever face is loaded (horizontal + vertical).
 
+Install also drops `/etc/udev/rules.d/99-omatty-reapply.rules` so a DRM `card*`
+add (GPU back from VFIO) re-runs that same `setfont` poke before SDDM.
+
+## Fresh VM smoke test
+
+```sh
+omarchy plugin add https://github.com/AlxWolfenstein97/omatty.git --enable
+# install.sh pulls pillow + terminus-font (sudo) and asks for the DRM udev rule
+ls /etc/udev/rules.d/99-omatty-reapply.rules /usr/local/lib/omatty/reapply
+# Style → TTY Fonts → pick ter-v32b (or similar); Ctrl+Alt+F3 should be fat
+omatty current
+omatty reapply   # sudo — same helper udev uses
+
+# Multi-VT (nested VM / no passthrough): after a fake “GPU return” you can
+# stop SDDM, confirm tty1–tty6 are all large, then start SDDM again.
+# Real single-GPU passthrough: leave VM, watch early VT during monitor flip —
+# every getty should end fat (chvt pass). After login, `omatty reapply` only
+# touches the active VT (no desktop flash).
+
+# Uninstall resets FONT= best-effort (sudo); DRM udev removed with uninstall.sh
+```
 ## Disable vs remove
 
 | Action | What happens |
 |--------|----------------|
-| `omarchy plugin disable …` | Shell service stops. No theme-set hook here — last `FONT=` / starship TTY wiring stay until you uninstall. |
-| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, `~/.config/omarchy/omatty/`, cache/state gone; best-effort clear of managed `FONT=` (**sudo**). Same class as Style → Unlock: console font may stay until you pick stock again — no floating-terminal retry. Shared packages stay. Leaves a state tombstone so Service `--quiet` cannot resurrect the menu. Refresh + `rescanPlugins` so the shell drops the row. |
+| `omarchy plugin disable …` | Shell service stops. No theme-set hook here — last `FONT=` / starship TTY / DRM reapply udev stay until you uninstall. |
+| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, DRM udev, `~/.config/omarchy/omatty/`, cache/state gone; best-effort clear of managed `FONT=` (**sudo**). Same class as Style → Unlock: console font may stay until you pick stock again — no floating-terminal retry. Shared packages stay. Leaves a state tombstone so Service `--quiet` cannot resurrect the menu. Refresh + `rescanPlugins` so the shell drops the row. |
 
 Quiet Service install: one-shot package prompt, menu written only if `// omatty:start`
 markers are missing (no rewrite every boot).

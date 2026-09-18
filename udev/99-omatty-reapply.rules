@@ -1,0 +1,4 @@
+# Re-apply OmaTTY console font when a DRM card appears (GPU back from VFIO).
+# fbcon often resets to a tiny default before SDDM; systemd-vconsole-setup
+# frequently skips busy VTs. Direct setfont still works — see omatty-reapply.
+ACTION=="add", SUBSYSTEM=="drm", KERNEL=="card[0-9]*", RUN+="/usr/local/lib/omatty/reapply --quiet"

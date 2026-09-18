@@ -29,6 +29,22 @@ if ! "$here/bin/omatty" clear --quiet 2>/dev/null; then
   note "vconsole FONT= left in place (sudo needed) — pick a stock console font or run: $here/bin/omatty clear"
 fi
 
+# Drop DRM reapply udev + helper (best-effort).
+udev_cleanup=$(cat <<'EOF'
+set -euo pipefail
+rm -f /etc/udev/rules.d/99-omatty-reapply.rules
+rm -f /usr/local/lib/omatty/reapply
+rmdir /usr/local/lib/omatty 2>/dev/null || true
+udevadm control --reload-rules >/dev/null 2>&1 || true
+EOF
+)
+if sudo -n bash -c "$udev_cleanup" >/dev/null 2>&1 \
+    || sudo bash -c "$udev_cleanup" >/dev/null 2>&1; then
+  note "removed DRM reapply udev"
+else
+  note "DRM reapply udev left in place (sudo needed) — remove /etc/udev/rules.d/99-omatty-reapply.rules by hand"
+fi
+
 rm -rf "$state" "$cache" "$config"
 mkdir -p "$state"
 touch "$state/uninstalled"
