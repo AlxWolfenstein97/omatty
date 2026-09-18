@@ -32,18 +32,20 @@ launch_cleanup_floater() {
     printf '%s\n' "printf '%s\n' 'Will remove / reset (sudo):'"
     printf '%s\n' "printf '%s\n' '  • managed FONT= block in /etc/vconsole.conf'"
     printf '%s\n' "printf '%s\n' '  • live setfont → default8x16 (so the TTY is not stuck fat)'"
+    printf '%s\n' "printf '%s\n' '  • limine-mkinitcpio — drop baked FONT from initramfs (encrypted / LUKS)'"
     printf '%s\n' "printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules (if present)'"
     printf '%s\n' "printf '%s\n' '  • /usr/local/lib/omatty/reapply (if present)'"
     printf '%s\n' "printf '%s\n' '────────────────────────────────'"
+    printf '%s\n' "printf '%s\n' 'Boot image rebuild can take a minute — leave this window open until Done.'"
     printf '%s\n' "printf '%s\n' ''"
     # Drop DRM udev first so a card-add cannot re-push the old face mid-clear.
     printf '%s\n' "sudo bash -c 'rm -f /etc/udev/rules.d/99-omatty-reapply.rules; rm -f /usr/local/lib/omatty/reapply; rmdir /usr/local/lib/omatty 2>/dev/null || true; udevadm control --reload-rules >/dev/null 2>&1 || true' \\"
     printf '%s\n' "  && printf 'DRM reapply udev removed\n' \\"
     printf '%s\n' "  || printf 'udev teardown failed — remove 99-omatty-reapply.rules by hand\n' >&2"
     printf '%s\n' "if $(printf '%q ' "$here/bin/omatty" clear); then"
-    printf '%s\n' "  printf 'vconsole FONT= cleared + live face → default8x16\n'"
+    printf '%s\n' "  printf 'vconsole FONT= cleared + live face → default8x16 + boot image refresh\n'"
     printf '%s\n' 'else'
-    printf '%s\n' "  printf 'clear failed — FONT= may still be set; try: sudo setfont default8x16\n' >&2"
+    printf '%s\n' "  printf 'clear failed — FONT= may still be set; try: sudo setfont default8x16 && sudo limine-mkinitcpio\n' >&2"
     printf '%s\n' 'fi'
 
 # --- itemized optional drops (scan installed; one y/N each) ---

@@ -184,6 +184,8 @@ omatty reapply --all-vts    # optional chvt sweep — only with SDDM stopped
 omatty current
 ```
 
+Encrypted installs bake `FONT=` into the initramfs (`consolefont` / Plymouth). `omatty set` and `omatty clear` run `limine-mkinitcpio` afterward so the LUKS prompt and early TTY match — leave the floater open until that finishes.
+
 Want even larger glyphs on a live console without changing `FONT=`? `setfont -d`
 doubles whatever face is loaded (horizontal + vertical).
 
@@ -216,7 +218,7 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 | Action | What happens |
 |--------|----------------|
 | `omarchy plugin disable …` | Shell service stops. No theme-set hook — last `FONT=` / DRM reapply udev stay. |
-| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, config/cache/state gone. Floater drops DRM udev first, then `omatty clear` (strips `FONT=`, forces live `setfont default8x16` even with no FONT= left — so the TTY is not stuck fat). Optional y/N `pkg drop`. |
+| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, config/cache/state gone. Floater drops DRM udev first, then `omatty clear` (strips `FONT=`, live `setfont default8x16`, then `limine-mkinitcpio` so encrypted/LUKS early boot is not stuck on fat Terminus baked into the initramfs). Optional y/N `pkg drop`. |
 | `omarchy pkg drop python-pillow` | Optional. Only if nothing else needs Pillow. Offered in the uninstall floater. |
 | `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces. |
 

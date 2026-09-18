@@ -19,6 +19,7 @@ import json
 import multiprocessing as mp
 import os
 import re
+import shutil
 import struct
 import subprocess
 import sys
@@ -1019,6 +1020,51 @@ def apply_setfont(font_stem: str) -> None:
     )
 
 
+def refresh_initramfs(*, quiet: bool = False) -> None:
+    """Rebuild the boot image so early userspace / LUKS matches vconsole FONT=.
+
+    Omarchy’s mkinitcpio hooks (`consolefont`, and often `FILES+=(/etc/vconsole.conf)`
+    for Plymouth) bake the current FONT into the initramfs/UKI. Clearing
+    /etc/vconsole.conf alone leaves fat Terminus on the next encrypted boot
+    until limine-mkinitcpio runs. Same for set — unlock prompt would lag.
+    """
+    if os.environ.get("OMATTY_SKIP_SETFONT") == "1":
+        return
+    if os.environ.get("OMATTY_SKIP_INITRAMFS") == "1":
+        return
+    if vconsole_path() != Path("/etc/vconsole.conf"):
+        return
+
+    builders: list[list[str]] = []
+    if shutil.which("limine-mkinitcpio"):
+        builders.append(["sudo", "limine-mkinitcpio"])
+    if shutil.which("mkinitcpio"):
+        builders.append(["sudo", "mkinitcpio", "-P"])
+    if not builders:
+        if not quiet:
+            note("no limine-mkinitcpio/mkinitcpio — rebuild initramfs by hand after FONT= changes")
+        return
+
+    if not quiet:
+        note("rebuilding boot image so LUKS / early TTY match FONT= (may take a bit)…")
+
+    for cmd in builders:
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        if result.returncode == 0:
+            if not quiet:
+                note(f"boot image refreshed ({cmd[-1] if cmd[-1] != '-P' else 'mkinitcpio -P'})")
+            return
+        err = (result.stderr or result.stdout or "").strip().splitlines()
+        tail = err[-1] if err else f"exit {result.returncode}"
+        if not quiet:
+            note(f"{' '.join(cmd)} failed: {tail}")
+
+    if not quiet:
+        note("boot image not refreshed — next encrypted boot may keep the old console font")
+        note("  later: sudo limine-mkinitcpio")
+
+
+
 def cmd_reapply(args: argparse.Namespace) -> int:
     """Re-push current FONT= without rewriting vconsole.conf (sudo)."""
     if os.environ.get("OMATTY_SKIP_SETFONT") == "1":
@@ -1067,6 +1113,7 @@ def set_font(font_id: str, *, quiet: bool = False, dry_run: bool = False) -> int
 
     write_vconsole(patched)
     apply_setfont(item["file"])
+    refresh_initramfs(quiet=quiet)
 
     state = paths()["state"]
     state.mkdir(parents=True, exist_ok=True)
@@ -1218,6 +1265,8 @@ def cmd_clear(args: argparse.Namespace) -> int:
         except Exception as error:  # noqa: BLE001
             if not args.quiet:
                 note(f"could not reset live setfont ({error}) — reboot or: sudo setfont default8x16")
+    # Encrypted / consolefont initramfs still carries the old FONT until rebuild.
+    refresh_initramfs(quiet=bool(args.quiet))
     return 0
 
 
