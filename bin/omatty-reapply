@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Re-push FONT= from /etc/vconsole.conf onto every text-mode virtual console.
+# Re-push FONT= from /etc/vconsole.conf onto the live console.
 #
 # Why this exists: after GPU passthrough returns the card, fbcon often resets
 # to a tiny default *before* SDDM/Hypr. systemd-vconsole-setup frequently
@@ -7,12 +7,13 @@
 # works — Style → TTY Fonts already does that. This helper is the same poke,
 # for udev (DRM card add) and manual `omatty reapply`.
 #
-# Each VT keeps its own font. Bare setfont only updates the active console;
-# setfont -C on inactive fbcon VTs often fails ("Unable to load such font…")
-# until that VT has been entered. Pre-SDDM we chvt through tty1–N, setfont on
-# each, then return — monitor flip time, all gettys fat. Once a graphical
-# session exists we only poke the active VT (+ best-effort -C) so we do not
-# flash the desktop.
+# Default: setfont on the *active* VT only. A chvt sweep through tty1–6 makes
+# every getty fat, but it races SDDM (usually tty1) and breaks the greeter —
+# exactly the host path vm-curator / single-GPU passthrough expects after the
+# VM releases the card. Do not chvt from udev.
+#
+# Opt-in: OMATTY_REAPPLY_ALL=1 or --all-vts for a manual chvt pass when SDDM
+# is stopped (nested VM tests, cold console-only sessions).
 #
 # Safe as root (udev) or via sudo. No-op when FONT= is unset.
 set -euo pipefail
@@ -21,9 +22,12 @@ conf="${OMATTY_VCONSOLE:-/etc/vconsole.conf}"
 fonts_dir="${OMATTY_CONSOLEFONTS:-/usr/share/kbd/consolefonts}"
 vt_max="${OMATTY_VT_MAX:-6}"
 quiet=0
+all_vts=0
+[[ ${OMATTY_REAPPLY_ALL:-0} == 1 ]] && all_vts=1
 for arg in "$@"; do
   case $arg in
     --quiet|-q) quiet=1 ;;
+    --all-vts|--all) all_vts=1 ;;
   esac
 done
 
@@ -71,21 +75,6 @@ resolve() {
 
 target=$(resolve "$font")
 
-has_graphical_session() {
-  local sid typ
-  # Fast paths: display manager / wayland socket already up.
-  [[ -d /run/sddm || -d /run/lightdm || -d /run/gdm ]] && return 0
-  compgen -G "/run/user/*/wayland-*" >/dev/null 2>&1 && return 0
-  while read -r sid _; do
-    [[ -n $sid ]] || continue
-    typ=$(loginctl show-session "$sid" -p Type --value 2>/dev/null || true)
-    case $typ in
-      wayland|x11|mir) return 0 ;;
-    esac
-  done < <(loginctl list-sessions --no-legend 2>/dev/null || true)
-  return 1
-}
-
 push_active() {
   local i
   for i in 1 2 3 4 5 6 7 8; do
@@ -97,13 +86,22 @@ push_active() {
   return 1
 }
 
+# Best-effort on numbered VTs without chvt (often fails on inactive fbcon).
 push_console() {
   local console=$1
   setfont "$target" -C "$console" >/dev/null 2>&1
 }
 
-# --- pre-SDDM / VT-only: visit each getty so fbcon accepts the tall face -----
-if ! has_graphical_session; then
+# --- opt-in only: visit each getty (SDDM must not be running) ---------------
+if (( all_vts )); then
+  if [[ -d /run/sddm || -d /run/lightdm || -d /run/gdm ]] \
+      || compgen -G "/run/user/*/wayland-*" >/dev/null 2>&1; then
+    note "refusing --all-vts while a greeter/graphical session is up (would steal the login VT)"
+    all_vts=0
+  fi
+fi
+
+if (( all_vts )); then
   cur=
   if [[ -r /sys/class/tty/tty0/active ]]; then
     cur=$(cat /sys/class/tty/tty0/active 2>/dev/null || true)
@@ -111,14 +109,11 @@ if ! has_graphical_session; then
   fi
   [[ -n $cur ]] || cur=$(fgconsole 2>/dev/null || echo 1)
 
-  # DRM bind can race fbcon — brief settle before chvt storm.
   sleep 0.4
-
   hit=0
   n=1
   while (( n <= vt_max )); do
     if [[ -c /dev/tty$n ]] && chvt "$n" 2>/dev/null; then
-      # Give fbcon a tick on this VT before loading the PSF.
       sleep 0.15
       if setfont "$target" >/dev/null 2>&1; then
         hit=$((hit + 1))
@@ -126,17 +121,15 @@ if ! has_graphical_session; then
     fi
     n=$((n + 1))
   done
-
   chvt "$cur" 2>/dev/null || true
 
   if (( hit > 0 )); then
-    note "setfont $font on $hit VTs (chvt pass, back on tty$cur)"
+    note "setfont $font on $hit VTs (--all-vts, back on tty$cur)"
     exit 0
   fi
-  # Fall through to active-only retry.
 fi
 
-# --- graphical session (or chvt pass failed): do not flash the desktop --------
+# --- default / udev: active VT only (+ quiet -C attempts, no chvt) ----------
 ok=0
 if push_active; then
   ok=1
@@ -153,7 +146,7 @@ while (( n <= vt_max )); do
 done
 
 if (( ok )); then
-  note "setfont $font (active + $extra ttyN; graphical session — no chvt)"
+  note "setfont $font (active + $extra ttyN via -C; no chvt)"
   exit 0
 fi
 note "setfont failed for $font (fbcon not ready?)"

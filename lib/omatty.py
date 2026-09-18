@@ -990,25 +990,29 @@ def cmd_reapply(args: argparse.Namespace) -> int:
     if os.environ.get("OMATTY_SKIP_SETFONT") == "1":
         return 0
     helper = plugin_dir() / "bin" / "omatty-reapply"
-    cmd = [str(helper), "--quiet"] if helper.is_file() else None
-    if cmd is None:
-        conf = read_vconsole()
-        match = re.search(r"^FONT=(.*)$", conf, re.M)
-        if not match:
-            if not args.quiet:
-                note("no FONT= in vconsole.conf")
-            return 0
-        stem = match.group(1).strip().strip("\"'")
-        apply_setfont(stem)
+    flags: list[str] = []
+    if args.quiet:
+        flags.append("--quiet")
+    if getattr(args, "all_vts", False):
+        flags.append("--all-vts")
+    if helper.is_file():
+        cmd = [str(helper), *flags]
+        if os.geteuid() == 0:
+            result = subprocess.run(cmd, check=False)
+        else:
+            result = subprocess.run(["sudo", *cmd], check=False)
+        if result.returncode != 0 and not args.quiet:
+            note("reapply failed — fbcon not ready, or no FONT= set")
+        return int(result.returncode)
+    conf = read_vconsole()
+    match = re.search(r"^FONT=(.*)$", conf, re.M)
+    if not match:
+        if not args.quiet:
+            note("no FONT= in vconsole.conf")
         return 0
-    # Root (udev) can run the helper directly; otherwise sudo.
-    if os.geteuid() == 0:
-        result = subprocess.run(cmd, check=False)
-    else:
-        result = subprocess.run(["sudo", *cmd], check=False)
-    if result.returncode != 0 and not args.quiet:
-        note("reapply failed — fbcon not ready, or no FONT= set")
-    return int(result.returncode)
+    stem = match.group(1).strip().strip("\"'")
+    apply_setfont(stem)
+    return 0
 
 
 def set_font(font_id: str, *, quiet: bool = False, dry_run: bool = False) -> int:
@@ -1406,6 +1410,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Re-push current FONT= with setfont (sudo; same poke as DRM udev)",
     )
     reapply.add_argument("--quiet", action="store_true")
+    reapply.add_argument(
+        "--all-vts",
+        action="store_true",
+        help="chvt through tty1–N (only with SDDM stopped; refused if greeter/session is up)",
+    )
     reapply.set_defaults(func=cmd_reapply)
 
     sub.add_parser("switcher", help="Open image picker; print chosen font id").set_defaults(

@@ -13,13 +13,18 @@ away. Big fat Terminus clamps whip the TTY the way bitmap consoles used to.
 
 **GPU passthrough caveat:** when the card returns from a VM, fbcon often resets
 to a tiny default *before* SDDM/Hypr. `systemd-vconsole-setup` frequently skips
-busy VTs (“All allocated virtual consoles are busy”), and `setfont -C` on an
-*inactive* framebuffer VT often fails until that VT has been entered. OmaTTY’s
-DRM `card*` udev rule re-runs `setfont` from your `FONT=`: **pre-SDDM** it
-`chvt`s through tty1–6 (monitor flip time) so every getty is fat; **once a
-graphical session exists** it only pokes the active VT so the desktop does not
-flash. Style → TTY Fonts / `omatty reapply` use the same helper. Brief tiny
-flash mid-modeset is still possible.
+busy VTs (“All allocated virtual consoles are busy”). OmaTTY’s DRM `card*`
+udev rule re-runs `setfont` on the **active** VT only (plus best-effort
+`setfont -C` with no `chvt`) — fat text on the console you are looking at
+during the monitor flip, without stealing SDDM’s login VT (vm-curator /
+single-GPU host path). Other gettys may stay small until you visit them or
+reboot; after a normal reboot they are all large via `vconsole.conf`.
+
+Do **not** `chvt` from udev: sweeping tty1–6 races the greeter and can leave
+you unable to reach SDDM. For a deliberate multi-VT pass with SDDM **stopped**
+(nested VM / console-only tests): `omatty reapply --all-vts` or
+`OMATTY_REAPPLY_ALL=1`. Style → TTY Fonts / plain `omatty reapply` stay
+active-VT-safe. Brief tiny flash mid-modeset is still possible.
 
 Stock Omarchy never sets a console font. Recent
 [archinstall](https://github.com/archlinux/archinstall) builds expose a
@@ -165,7 +170,8 @@ omatty switcher             # picker → prints font id
 omatty show ter-v32b        # print patched vconsole.conf
 omatty set ter-v32b         # apply (sudo)
 omatty set ter-v32b --dry-run
-omatty reapply              # setfont again from current FONT= (sudo)
+omatty reapply              # setfont again from current FONT= (sudo; active VT)
+omatty reapply --all-vts    # optional chvt sweep — only with SDDM stopped
 omatty current
 ```
 
@@ -173,7 +179,7 @@ Want even larger glyphs on a live console without changing `FONT=`? `setfont -d`
 doubles whatever face is loaded (horizontal + vertical).
 
 Install also drops `/etc/udev/rules.d/99-omatty-reapply.rules` so a DRM `card*`
-add (GPU back from VFIO) re-runs that same `setfont` poke before SDDM.
+add (GPU back from VFIO) re-runs the **active-VT** `setfont` poke (no `chvt`).
 
 ## Fresh VM smoke test
 
@@ -183,15 +189,16 @@ omarchy plugin add https://github.com/AlxWolfenstein97/omatty.git --enable
 ls /etc/udev/rules.d/99-omatty-reapply.rules /usr/local/lib/omatty/reapply
 # Style → TTY Fonts → pick ter-v32b (or similar); Ctrl+Alt+F3 should be fat
 omatty current
-omatty reapply   # sudo — same helper udev uses
+omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 
-# Multi-VT (nested VM / no passthrough): after a fake “GPU return” you can
-# stop SDDM, confirm tty1–tty6 are all large, then start SDDM again.
-# Real single-GPU passthrough: leave VM, watch early VT during monitor flip —
-# every getty should end fat (chvt pass). After login, `omatty reapply` only
-# touches the active VT (no desktop flash).
+# Single-GPU / vm-curator: leave VM → early VT should go fat on the VT you
+# land on; SDDM login must still work afterward (udev must not chvt).
+# Other gettys may stay small until reboot or a manual visit.
 
-# Uninstall resets FONT= best-effort (sudo); DRM udev removed with uninstall.sh
+# Nested VM / SDDM stopped only:
+#   systemctl stop sddm
+#   omatty reapply --all-vts
+#   # tty1–tty6 fat, then start sddm again if you want the greeter
 ```
 ## Disable vs remove
 
