@@ -147,7 +147,14 @@ Style menu helper: `./tools/install-style-menu.sh --yes`.
 ~/.config/omarchy/plugins/io.github.alxwolfenstein97.chroma/tools/arm-all-family.sh
 ```
 
-**Wipe the whole family** (teardown + remove; skips pkg Y/n):
+**Full wipe (this plugin)** — same ease as `install.sh --yes`
+(teardown + `plugin remove`; skips optional pkg Y/n; pillow etc. stay):
+
+```sh
+~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/uninstall.sh --yes
+```
+
+**Wipe the whole family** (calls each plugin’s `uninstall.sh --yes`):
 
 ```sh
 ~/.config/omarchy/plugins/io.github.alxwolfenstein97.chroma/tools/wipe-all-family.sh
@@ -267,12 +274,10 @@ Pillow install; reinstall after uninstall clears the claim (shell restart does n
 manual shell restart; DRM udev skipped unless already
 passwordless or you run `omatty install-drm`.
 
-**Full wipe:**
+**Full wipe** — one shot (`--yes` skips pkg Y/n and removes the plugin):
 
 ```sh
-~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/uninstall.sh
-# floater: clear FONT= + live default8x16 + udev teardown + optional pkg drop
-omarchy plugin remove io.github.alxwolfenstein97.omatty
+~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/uninstall.sh --yes
 ```
 
 ## Why not every console font?
