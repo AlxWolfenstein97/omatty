@@ -158,3 +158,5 @@ launch_cleanup_floater python-pillow terminus-font
 note "done — no omatty menu or starship TTY profile left; FONT=/udev reset in floating terminal"
 note "plugin files remain at $here until you omit/remove the plugin"
 exit 0
+
+rm -f "$state/armed-theme-hook" "$state/armed-style-menu" 2>/dev/null || true

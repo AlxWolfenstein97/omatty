@@ -126,6 +126,25 @@ in `~/.bashrc` that sets `STARSHIP_CONFIG` **only** when `tty` reports
 `/dev/tty*` (Ctrl+Alt+F3 style). Graphical terminals keep the fancy profile.
 Your Wayland session is untouched; the clamp only hits the virtual console.
 
+
+## Marketplace consent (hooks & Style menu)
+
+Installing the plugin only drops the code into your plugins folder. Writing a
+**Style** menu row or a **theme-set** hook edits your Omarchy config, so that
+stays **opt-in** (marketplace rule: no silent config overwrite).
+
+Interactive `./install.sh` asks once (default Yes). Or run later:
+
+```sh
+./tools/install-style-menu.sh
+```
+
+(style-menu only (DRM reapply still optional/ask))
+
+Paths are under `~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/`.
+Quiet shell restarts only restore what you already armed. `./uninstall.sh`
+clears the arming flags too.
+
 ## Install
 
 ```sh
