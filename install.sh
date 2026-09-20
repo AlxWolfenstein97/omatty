@@ -15,11 +15,13 @@ quiet=0
 with_style_menu=0
 with_theme_hook=0
 arm_all=0
+assume_yes=0
 with_drm=0
 for arg in "$@"; do
   case $arg in
     --with-style-menu) with_style_menu=1 ;;
     --arm-all) arm_all=1 ;;
+    --yes|-y) assume_yes=1; arm_all=1 ;;
     --quiet) quiet=1 ;;
     --with-drm-reapply|--with-drm) with_drm=1 ;;
   esac
@@ -73,7 +75,7 @@ menu_file="${menu_file:-$HOME/.config/omarchy/extensions/omarchy-menu.jsonc}"
 (( with_style_menu || arm_all )) && arm_style_menu=1
 [[ -f $state/armed-theme-hook ]] && arm_theme_hook=1
 [[ -f $state/armed-style-menu ]] && arm_style_menu=1
-if (( ! quiet )); then
+if (( ! quiet && ! assume_yes )); then
   if (( ! arm_style_menu )); then
     printf '%s' "omatty: install Style → TTY Fonts menu entry? [Y/n] "
     read -r _ans || _ans=
@@ -176,7 +178,7 @@ EOF
   print_drm_header
   if (( ! with_drm )); then
     local ans=
-    read -r -p "Install optional DRM reapply udev now? [y/N] " ans || true
+    if (( assume_yes )); then ans=N; else read -r -p "Install optional DRM reapply udev now? [y/N] " ans || true; fi
     case $ans in
       [yY]|[yY][eE][sS]) ;;
       *)
@@ -314,7 +316,7 @@ EOF
       printf '%s\n' "  • /etc/udev/rules.d/99-omatty-reapply.rules"
       printf '%s\n' "Skip if you never hop a GPU to a VM. Style → TTY Fonts still works."
       local ans=
-      read -r -p "Install optional DRM reapply udev now? [y/N] " ans || true
+      if (( assume_yes )); then ans=N; else read -r -p "Install optional DRM reapply udev now? [y/N] " ans || true; fi
       case $ans in
         [yY]|[yY][eE][sS])
           if sudo bash -c "$drm_script"; then
