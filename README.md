@@ -268,11 +268,11 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 | `omarchy pkg drop python-pillow` | Optional. Only if nothing else needs Pillow. Offered in the uninstall floater. |
 | `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces. |
 
-Quiet Service install: one floater for missing packages **and** optional DRM y/N;
-shared Pillow claim under flock so parallel Style plugins do not each spam a
-Pillow install; reinstall after uninstall clears the claim (shell restart does not — intentional); menu + `rescanPlugins` so Style → TTY Fonts shows without a
-manual shell restart; DRM udev skipped unless already
-passwordless or you run `omatty install-drm`.
+Quiet Service install (`--quiet`): **no package floaters** — restores already-armed
+wiring only (DRM udev only if already passwordless). Deps + Style consent + DRM
+reapply come from interactive `install.sh`, `--yes --with-drm-reapply`, or family
+`arm-all-family.sh`. Menu + `rescanPlugins` so Style → TTY Fonts shows without a
+manual shell restart.
 
 **Full wipe** — one shot (`--yes` skips pkg Y/n and removes the plugin):
 
