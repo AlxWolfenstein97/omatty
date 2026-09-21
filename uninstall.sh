@@ -34,17 +34,13 @@ try_pkg_drop() {
 }
 
 ask_pkg_drop() {
-  # Interactive TTY only — no floating terminal (harder to dismiss mid-cleanup).
+  # Interactive — prompts in this terminal (no floater).
   local -a have=()
   local pkg a req
   for pkg in "$@"; do
     pacman -Q "$pkg" &>/dev/null && have+=("$pkg")
   done
   ((${#have[@]})) || return 0
-  if [[ ! -t 0 && ! -t 1 ]]; then
-    note "no TTY — skip optional pkg drop (re-run from a terminal, or uninstall.sh --yes)"
-    return 0
-  fi
   note "optional package drops — n / Enter keeps; pacman may refuse if still required"
   for pkg in "${have[@]}"; do
     case $pkg in
@@ -123,8 +119,8 @@ if (( assume_yes )); then
   fi
   note "full wipe (--yes): trying package drops (kept if still required elsewhere)"
   try_pkg_drop python-pillow terminus-font
-elif [[ -t 0 || -t 1 ]]; then
-  note "resetting FONT= / DRM udev in this TTY (may prompt for sudo)"
+else
+  note "resetting FONT= / DRM udev (may prompt for sudo)"
   udev_teardown
   if "$here/bin/omatty" clear; then
     note "vconsole FONT= cleared + live face → default8x16 + boot image refresh"
@@ -132,8 +128,6 @@ elif [[ -t 0 || -t 1 ]]; then
     note "clear failed — try: sudo setfont default8x16 && sudo limine-mkinitcpio"
   fi
   ask_pkg_drop python-pillow terminus-font
-else
-  note "no TTY — FONT=/udev / pkgs not cleared; re-run from a terminal or: uninstall.sh --yes"
 fi
 
 note "done — no omatty menu or starship TTY profile left"
