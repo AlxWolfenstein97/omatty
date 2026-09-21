@@ -138,7 +138,7 @@ edit your Omarchy config, so they stay **opt-in**.
 ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/install.sh --yes
 ```
 
-`--yes` means: I consent — arm everything this plugin supports, skip Y/n.
+`--yes` means: I consent — arm everything this plugin supports, skip Y/n. Interactive `./install.sh` (no `--yes`) still asks — Workshop-safe; `--yes` / arm-all are optional shortcuts.
 Style menu helper: `./tools/install-style-menu.sh --yes`.
 
 **Arm the whole family in one shot** (after all plugins are installed):
@@ -167,38 +167,23 @@ only restore what you already armed. `./uninstall.sh` clears the arm flags.
 
 ## Install
 
-```sh
+Workshop-style one paste (enable + integrate; installer asks [Y/n]):
+
+```bash
 omarchy plugin add https://github.com/AlxWolfenstein97/omatty.git --enable
+~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/install.sh
 ```
 
-That clones into `~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty`.
-Or from a checkout:
+That clones into `~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty` and arms hooks / Style after you
+confirm. Skip prompts: `~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/install.sh --yes`.
 
-```sh
+Or from an existing checkout:
+
+```bash
 ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/install.sh
 omarchy plugin enable io.github.alxwolfenstein97.omatty
 ```
 
-**Needs (installer pulls these if missing):**
-
-| Package | Why |
-|---------|-----|
-| `python-pillow` | Rasterises real PSF glyphs into Style → TTY Fonts tiles. Without it mockups fail and the carousel looks empty. |
-| `terminus-font` | Terminus `ter-v*` console faces the curated picker shows. Without it those tiles cannot render. |
-
-Also needs Omarchy’s image picker, `kbd` (`setfont`), and sudo for apply.
-`install.sh` installs both packages **before** warming mockups. Same sudo story
-as Chroma: interactive TTY can `omarchy pkg add` inline; shell-service `--quiet`
-opens one floating terminal once when Terminus/Pillow are missing. Dismissed it?
-`omarchy pkg add python-pillow terminus-font` then re-open Style → TTY Fonts
-(or `omatty preview`). Mid-session enable: install refreshes the menu and
-`rescanPlugins`; a shell restart also picks everything up.
-
-**Font-menu side effect:** pulling `terminus-font` also registers Terminus under
-Omarchy’s graphical **Fonts** menu (same class of package fallout as Courier New
-showing up after you install `ttf-ms-fonts` for LibreOffice). Fine for the TTY —
-a bad idea to pick for the desktop when Omarchy already runs JetBrains Mono Nerd
-(and friends). Console face ≠ UI face; leave Style → Fonts alone for Terminus.
 
 ## How it works
 
