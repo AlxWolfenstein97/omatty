@@ -252,10 +252,10 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 #   omatty install-drm
 #   ls /etc/udev/rules.d/99-omatty-reapply.rules /usr/local/lib/omatty/reapply
 
-# Skip install floater → logout/reboot → one floater again (shell restart does not re-nag)
-# ./uninstall.sh → floater: udev off, clear FONT=, setfont default8x16, limine-mkinitcpio, optional pkg drop
+# plugin add alone + reboot → still no floater (quiet skips pkgs); run install.sh for deps/hooks
+# ./uninstall.sh → this TTY: udev off, clear FONT=, setfont default8x16, limine-mkinitcpio, optional pkg drop
 #   reboot → unlock + TTY back to stock size (encrypted and plain)
-# Skip remove floater + disable → reinstall → uninstall again → go through floater once
+# Skip pkg prompts (n) + disable → reinstall → uninstall again → answer prompts in TTY
 # Pillow drop with mangohud/goverlay installed → fails Required By; that is fine
 ```
 
@@ -264,8 +264,8 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 | Action | What happens |
 |--------|----------------|
 | `omarchy plugin disable …` | Shell service stops. No theme-set hook — last `FONT=` / DRM reapply udev stay. |
-| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, config/cache/state gone. Floater drops DRM udev first, then `omatty clear` (strips `FONT=`, live `setfont default8x16`, then `limine-mkinitcpio` so encrypted/LUKS early boot is not stuck on fat Terminus baked into the initramfs). Optional y/N `pkg drop`. |
-| `omarchy pkg drop python-pillow` | Optional. Only if nothing else needs Pillow. Offered in the uninstall floater. |
+| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, config/cache/state gone. This TTY drops DRM udev first, then `omatty clear` (strips `FONT=`, live `setfont default8x16`, then `limine-mkinitcpio` so encrypted/LUKS early boot is not stuck on fat Terminus baked into the initramfs). Optional y/N `pkg drop`. |
+| `omarchy pkg drop python-pillow` | Optional. Only if nothing else needs Pillow. Offered as a TTY y/N on uninstall. |
 | `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces. |
 
 Quiet Service install (`--quiet`): **no package floaters** — restores already-armed

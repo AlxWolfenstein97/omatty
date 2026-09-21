@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Menu, starship TTY wiring, cache/state. Floating terminal clears FONT= and
-# DRM reapply udev (sudo). Optional y/N pkg drop in the same floater.
+# Menu, starship TTY wiring, cache/state. Clears FONT= + DRM udev in this TTY
+# (sudo) + optional y/N pkg drop. --yes does both inline. No floaters.
 #
 set -euo pipefail
 
@@ -33,122 +33,50 @@ try_pkg_drop() {
   done
 }
 
-
-launch_cleanup_floater() {
+ask_pkg_drop() {
+  # Interactive TTY only — no floating terminal (harder to dismiss mid-cleanup).
   local -a have=()
-  local pkg
+  local pkg a req
   for pkg in "$@"; do
     pacman -Q "$pkg" &>/dev/null && have+=("$pkg")
   done
-  local list="${have[*]}"
-  local script="$state/uninstall-floater.sh"
-  mkdir -p "$state"
-  {
-    printf '%s\n' '#!/usr/bin/env bash' 'set -uo pipefail'
-    printf '%s\n' "printf '%s\n' 'OmaTTY — uninstall'"
-    printf '%s\n' "printf '%s\n' 'io.github.alxwolfenstein97.omatty'"
-    printf '%s\n' "printf '%s\n' 'Style → TTY Fonts — console font mockups + FONT='"
-    printf '%s\n' "printf '%s\n' '────────────────────────────────'"
-    printf '%s\n' "printf '%s\n' 'Will remove / reset (sudo):'"
-    printf '%s\n' "printf '%s\n' '  • managed FONT= block in /etc/vconsole.conf'"
-    printf '%s\n' "printf '%s\n' '  • live setfont → default8x16 (so the TTY is not stuck fat)'"
-    printf '%s\n' "printf '%s\n' '  • limine-mkinitcpio — drop baked FONT from initramfs (encrypted / LUKS)'"
-    printf '%s\n' "printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules (if present)'"
-    printf '%s\n' "printf '%s\n' '  • /usr/local/lib/omatty/reapply (if present)'"
-    printf '%s\n' "printf '%s\n' '────────────────────────────────'"
-    printf '%s\n' "printf '%s\n' 'Boot image rebuild can take a minute — leave this window open until Done.'"
-    printf '%s\n' "printf '%s\n' ''"
-    # Drop DRM udev first so a card-add cannot re-push the old face mid-clear.
-    printf '%s\n' "sudo bash -c 'rm -f /etc/udev/rules.d/99-omatty-reapply.rules; rm -f /usr/local/lib/omatty/reapply; rmdir /usr/local/lib/omatty 2>/dev/null || true; udevadm control --reload-rules >/dev/null 2>&1 || true' \\"
-    printf '%s\n' "  && printf 'DRM reapply udev removed\n' \\"
-    printf '%s\n' "  || printf 'udev teardown failed — remove 99-omatty-reapply.rules by hand\n' >&2"
-    printf '%s\n' "if $(printf '%q ' "$here/bin/omatty" clear); then"
-    printf '%s\n' "  printf 'vconsole FONT= cleared + live face → default8x16 + boot image refresh\n'"
-    printf '%s\n' 'else'
-    printf '%s\n' "  printf 'clear failed — FONT= may still be set; try: sudo setfont default8x16 && sudo limine-mkinitcpio\n' >&2"
-    printf '%s\n' 'fi'
-
-# --- itemized optional drops (scan installed; one y/N each) ---
-    if ((${#have[@]})); then
-      printf '%s\n' ''
-      printf '%s\n' "printf '%s\n' 'Optional package drops — scanned; only installed packages listed.'"
-      printf '%s\n' "printf '%s\n' 'Answer n / Enter to keep. Close with Done when finished.'"
-      for pkg in "${have[@]}"; do
-        case $pkg in
-          python-pillow)
-            printf '%s\n' "printf '%s\n' ''"
-            printf '%s\n' "printf '%s\n' 'python-pillow'"
-            printf '%s\n' "printf '%s\n' '  Used by Style carousel plugins (OmaBoot/OmaVT/OmaOBS/OmaHud/OmaCursor/OmaTTY).'"
-            printf '%s\n' "printf '%s\n' '  MangoHud → python-matplotlib → pillow; goverlay → MangoHud. Lutris may too.'"
-            printf '%s\n' "printf '%s\n' '  Removing breaks Style mockups until reinstalled; clear/uninstall still work without it.'"
-            printf '%s\n' "printf '%s\n' '  If drop fails because those still need it — that is fine; keep Pillow.'"
-            printf '%s\n' "req=\$(pacman -Qi python-pillow 2>/dev/null | awk -F': ' '/^Required By/{print \$2}')"
-            printf '%s\n' "printf '  pacman Required By: %s\n' \"\${req:-none}\""
-            printf '%s\n' "read -r -p 'Drop python-pillow? [y/N] ' a"
-            printf '%s\n' "case \$a in"
-            printf '%s\n' "  [yY]|[yY][eE][sS])"
-            printf '%s\n' "    if omarchy pkg drop python-pillow; then printf 'dropped python-pillow\n'"
-            printf '%s\n' "    else printf 'not dropped (other packages still need it — that is fine)\n'; fi"
-            printf '%s\n' "    ;;"
-            printf '%s\n' "  *) printf 'kept python-pillow\n' ;;"
-            printf '%s\n' "esac"
-            ;;
-          terminus-font)
-            printf '%s\n' "printf '%s\n' ''"
-            printf '%s\n' "printf '%s\n' 'terminus-font — Terminus console faces for TTY Fonts'"
-            printf '%s\n' "read -r -p 'Drop terminus-font? [y/N] ' a"
-            printf '%s\n' "case \$a in"
-            printf '%s\n' "  [yY]|[yY][eE][sS]) omarchy pkg drop terminus-font && printf 'dropped terminus-font\n' || printf 'not dropped\n' ;;"
-            printf '%s\n' "  *) printf 'kept terminus-font\n' ;;"
-            printf '%s\n' "esac"
-            ;;
-          python-numpy)
-            printf '%s\n' "printf '%s\n' ''"
-            printf '%s\n' "printf '%s\n' 'python-numpy — fast Adwaita cursor remaps (OmaCursor)'"
-            printf '%s\n' "req=\$(pacman -Qi python-numpy 2>/dev/null | awk -F': ' '/^Required By/{print \$2}')"
-            printf '%s\n' "printf '  pacman Required By: %s\n' \"\${req:-none}\""
-            printf '%s\n' "read -r -p 'Drop python-numpy? [y/N] ' a"
-            printf '%s\n' "case \$a in"
-            printf '%s\n' "  [yY]|[yY][eE][sS])"
-            printf '%s\n' "    if omarchy pkg drop python-numpy; then printf 'dropped python-numpy\n'"
-            printf '%s\n' "    else printf 'not dropped (still required elsewhere — fine)\n'; fi"
-            printf '%s\n' "    ;;"
-            printf '%s\n' "  *) printf 'kept python-numpy\n' ;;"
-            printf '%s\n' "esac"
-            ;;
-          adw-gtk-theme)
-            printf '%s\n' "printf '%s\n' ''"
-            printf '%s\n' "printf '%s\n' 'adw-gtk-theme — GTK theme Chroma paints over'"
-            printf '%s\n' "read -r -p 'Drop adw-gtk-theme? [y/N] ' a"
-            printf '%s\n' "case \$a in"
-            printf '%s\n' "  [yY]|[yY][eE][sS]) omarchy pkg drop adw-gtk-theme && printf 'dropped adw-gtk-theme\n' || printf 'not dropped\n' ;;"
-            printf '%s\n' "  *) printf 'kept adw-gtk-theme\n' ;;"
-            printf '%s\n' "esac"
-            ;;
-          *)
-            printf '%s\n' "printf '%s\n' ''"
-            printf '%s\n' "printf 'Package: %s\n' $(printf %q "$pkg")"
-            printf '%s\n' "read -r -p \"Drop $pkg? [y/N] \" a"
-            printf '%s\n' "case \$a in"
-            printf '%s\n' "  [yY]|[yY][eE][sS]) omarchy pkg drop $pkg && printf 'dropped\n' || printf 'not dropped\n' ;;"
-            printf '%s\n' "  *) printf 'kept\n' ;;"
-            printf '%s\n' "esac"
-            ;;
-        esac
-      done
-    fi
-
-  } >"$script"
-  chmod 755 "$script"
-  if command -v omarchy-launch-floating-terminal-with-presentation >/dev/null 2>&1; then
-    note "opening floating terminal to reset FONT= / udev (+ optional pkg drop)"
-    omarchy-launch-floating-terminal-with-presentation "bash $(printf %q "$script")" >/dev/null 2>&1 &
-  else
-    note "run: $here/bin/omatty clear"
-    note "and remove /etc/udev/rules.d/99-omatty-reapply.rules if present"
-    ((${#have[@]})) && note "optional: omarchy pkg drop $list"
+  ((${#have[@]})) || return 0
+  if [[ ! -t 0 && ! -t 1 ]]; then
+    note "no TTY — skip optional pkg drop (re-run from a terminal, or uninstall.sh --yes)"
+    return 0
   fi
+  note "optional package drops — n / Enter keeps; pacman may refuse if still required"
+  for pkg in "${have[@]}"; do
+    case $pkg in
+      python-pillow)
+        note "python-pillow — Style carousel mockups (shared); MangoHud/goverlay/Lutris may need it"
+        req=$(pacman -Qi python-pillow 2>/dev/null | awk -F': ' '/^Required By/{print $2}')
+        note "  pacman Required By: ${req:-none}"
+        ;;
+      python-numpy)
+        note "python-numpy — OmaCursor Adwaita remaps"
+        req=$(pacman -Qi python-numpy 2>/dev/null | awk -F': ' '/^Required By/{print $2}')
+        note "  pacman Required By: ${req:-none}"
+        ;;
+      terminus-font)
+        note "terminus-font — OmaTTY console faces"
+        ;;
+      adw-gtk-theme)
+        note "adw-gtk-theme — GTK theme Chroma paints over"
+        ;;
+      *)
+        note "package: $pkg"
+        ;;
+    esac
+    read -r -p "Drop $pkg? [y/N] " a || a=
+    case $a in
+      [yY]|[yY][eE][sS]) try_pkg_drop "$pkg" ;;
+      *) note "kept $pkg" ;;
+    esac
+  done
 }
+
+
 
 
 export OMATTY_PLUGIN_DIR="$here"
@@ -173,14 +101,21 @@ note "cleared state/cache/config (tombstone left so quiet install cannot resurre
 omarchy-shell -q omarchy.menu refresh >/dev/null 2>&1 || true
 omarchy-shell -q shell rescanPlugins >/dev/null 2>&1 || true
 
-if (( assume_yes )); then
-  # inline FONT=/udev reset (no floater) + best-effort package drops
-  note "full wipe (--yes): resetting FONT= / DRM udev inline"
+udev_teardown() {
   if command -v pkexec >/dev/null 2>&1; then
-    pkexec /bin/sh -c 'rm -f /etc/udev/rules.d/99-omatty-reapply.rules; rm -f /usr/local/lib/omatty/reapply; rmdir /usr/local/lib/omatty 2>/dev/null || true; udevadm control --reload-rules >/dev/null 2>&1 || true'       && note "DRM reapply udev removed"       || note "udev teardown failed — remove 99-omatty-reapply.rules by hand"
+    pkexec /bin/sh -c 'rm -f /etc/udev/rules.d/99-omatty-reapply.rules; rm -f /usr/local/lib/omatty/reapply; rmdir /usr/local/lib/omatty 2>/dev/null || true; udevadm control --reload-rules >/dev/null 2>&1 || true' \
+      && note "DRM reapply udev removed" \
+      || note "udev teardown failed — remove 99-omatty-reapply.rules by hand"
   else
-    sudo bash -c 'rm -f /etc/udev/rules.d/99-omatty-reapply.rules; rm -f /usr/local/lib/omatty/reapply; rmdir /usr/local/lib/omatty 2>/dev/null || true; udevadm control --reload-rules >/dev/null 2>&1 || true'       && note "DRM reapply udev removed"       || note "udev teardown failed — remove 99-omatty-reapply.rules by hand"
+    sudo bash -c 'rm -f /etc/udev/rules.d/99-omatty-reapply.rules; rm -f /usr/local/lib/omatty/reapply; rmdir /usr/local/lib/omatty 2>/dev/null || true; udevadm control --reload-rules >/dev/null 2>&1 || true' \
+      && note "DRM reapply udev removed" \
+      || note "udev teardown failed — remove 99-omatty-reapply.rules by hand"
   fi
+}
+
+if (( assume_yes )); then
+  note "full wipe (--yes): resetting FONT= / DRM udev inline"
+  udev_teardown
   if "$here/bin/omatty" clear; then
     note "vconsole FONT= cleared + live face → default8x16 + boot image refresh"
   else
@@ -188,11 +123,20 @@ if (( assume_yes )); then
   fi
   note "full wipe (--yes): trying package drops (kept if still required elsewhere)"
   try_pkg_drop python-pillow terminus-font
+elif [[ -t 0 || -t 1 ]]; then
+  note "resetting FONT= / DRM udev in this TTY (may prompt for sudo)"
+  udev_teardown
+  if "$here/bin/omatty" clear; then
+    note "vconsole FONT= cleared + live face → default8x16 + boot image refresh"
+  else
+    note "clear failed — try: sudo setfont default8x16 && sudo limine-mkinitcpio"
+  fi
+  ask_pkg_drop python-pillow terminus-font
 else
-  launch_cleanup_floater python-pillow terminus-font
+  note "no TTY — FONT=/udev / pkgs not cleared; re-run from a terminal or: uninstall.sh --yes"
 fi
 
-note "done — no omatty menu or starship TTY profile left; FONT=/udev reset in floating terminal"
+note "done — no omatty menu or starship TTY profile left"
 if (( assume_yes )); then
   note "full wipe (--yes): removing plugin $plugin_id"
   if command -v omarchy >/dev/null 2>&1; then
