@@ -174,8 +174,18 @@ omarchy-shell -q omarchy.menu refresh >/dev/null 2>&1 || true
 omarchy-shell -q shell rescanPlugins >/dev/null 2>&1 || true
 
 if (( assume_yes )); then
-  # privileged teardown floater (no Y/n) + best-effort package drops
-  launch_cleanup_floater
+  # inline FONT=/udev reset (no floater) + best-effort package drops
+  note "full wipe (--yes): resetting FONT= / DRM udev inline"
+  if command -v pkexec >/dev/null 2>&1; then
+    pkexec /bin/sh -c 'rm -f /etc/udev/rules.d/99-omatty-reapply.rules; rm -f /usr/local/lib/omatty/reapply; rmdir /usr/local/lib/omatty 2>/dev/null || true; udevadm control --reload-rules >/dev/null 2>&1 || true'       && note "DRM reapply udev removed"       || note "udev teardown failed — remove 99-omatty-reapply.rules by hand"
+  else
+    sudo bash -c 'rm -f /etc/udev/rules.d/99-omatty-reapply.rules; rm -f /usr/local/lib/omatty/reapply; rmdir /usr/local/lib/omatty 2>/dev/null || true; udevadm control --reload-rules >/dev/null 2>&1 || true'       && note "DRM reapply udev removed"       || note "udev teardown failed — remove 99-omatty-reapply.rules by hand"
+  fi
+  if "$here/bin/omatty" clear; then
+    note "vconsole FONT= cleared + live face → default8x16 + boot image refresh"
+  else
+    note "clear failed — try: sudo setfont default8x16 && sudo limine-mkinitcpio"
+  fi
   note "full wipe (--yes): trying package drops (kept if still required elsewhere)"
   try_pkg_drop python-pillow terminus-font
 else

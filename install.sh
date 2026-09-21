@@ -287,7 +287,8 @@ EOF
 )
   fi
 
-  if (( ! quiet )) && [[ -t 0 || -t 1 ]]; then
+  # --yes / family oneshot: install inline (no floater). Interactive TTY same.
+  if (( assume_yes )) || { (( ! quiet )) && [[ -t 0 || -t 1 ]]; }; then
     if ((${#missing[@]})); then
       printf '%s\n' "OmaTTY"
       printf '%s\n' "io.github.alxwolfenstein97.omatty"
