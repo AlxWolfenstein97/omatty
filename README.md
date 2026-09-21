@@ -9,7 +9,7 @@ Ctrl+Alt+F3 — real PSF mockups in the Style menu, then `FONT=` in
 Built first for **accessibility** — low vision, a mostly-blind bastard who still
 wants a usable virtual console, HiDPI / 1440p+ glass where `default8x16` is
 squint-land, and reading kernel logs on Ctrl+Alt+F3 after the desktop has gone
-away. Big fat Terminus clamps whip the TTY the way bitmap consoles used to.
+away. Big fat Terminus clamps whip the TTY like a proper bitmap console.
 
 **GPU passthrough / vm-curator:** when the card returns from a VM, fbcon often
 resets to a tiny default *before* SDDM. `systemd-vconsole-setup` frequently
