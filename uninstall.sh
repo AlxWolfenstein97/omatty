@@ -19,6 +19,19 @@ menu_lock="$HOME/.local/state/omarchy/style-extenders/menu.lock"
 
 note() { printf 'omatty: %s\n' "$1"; }
 
+# Prefer sudo on a TTY (wipe-all / interactive). pkexec for GUI / non-TTY.
+elevate() {
+  if { [[ -t 0 ]] || [[ -t 1 ]]; } && command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  elif command -v pkexec >/dev/null 2>&1; then
+    pkexec "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    return 127
+  fi
+}
+
 try_pkg_drop() {
   # Best-effort: drop packages we may have pulled. If something else still
   # needs them, pacman refuses and we leave them — that is fine.
@@ -98,14 +111,11 @@ omarchy-shell -q omarchy.menu refresh >/dev/null 2>&1 || true
 omarchy-shell -q shell rescanPlugins >/dev/null 2>&1 || true
 
 udev_teardown() {
-  if command -v pkexec >/dev/null 2>&1; then
-    pkexec /bin/sh -c 'rm -f /etc/udev/rules.d/99-omatty-reapply.rules; rm -f /usr/local/lib/omatty/reapply; rmdir /usr/local/lib/omatty 2>/dev/null || true; udevadm control --reload-rules >/dev/null 2>&1 || true' \
-      && note "DRM reapply udev removed" \
-      || note "udev teardown failed — remove 99-omatty-reapply.rules by hand"
+  note "removing DRM reapply udev (password once — sudo on TTY)"
+  if elevate /bin/sh -c 'rm -f /etc/udev/rules.d/99-omatty-reapply.rules; rm -f /usr/local/lib/omatty/reapply; rmdir /usr/local/lib/omatty 2>/dev/null || true; udevadm control --reload-rules >/dev/null 2>&1 || true'; then
+    note "DRM reapply udev removed"
   else
-    sudo bash -c 'rm -f /etc/udev/rules.d/99-omatty-reapply.rules; rm -f /usr/local/lib/omatty/reapply; rmdir /usr/local/lib/omatty 2>/dev/null || true; udevadm control --reload-rules >/dev/null 2>&1 || true' \
-      && note "DRM reapply udev removed" \
-      || note "udev teardown failed — remove 99-omatty-reapply.rules by hand"
+    note "udev teardown failed — remove 99-omatty-reapply.rules by hand"
   fi
 }
 
