@@ -434,5 +434,5 @@ if command -v omarchy >/dev/null 2>&1; then
 fi
 
 note "done — Style > TTY Fonts, or '$here/bin/omatty switcher'"
-note "applying prompts for sudo in a floating terminal"
+note "Style picker uses Omarchy's floating terminal for sudo on apply (like Unlock)"
 exit 0

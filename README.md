@@ -195,9 +195,9 @@ omarchy plugin enable io.github.alxwolfenstein97.omatty
 
 1. `bin/omatty-switcher` renders PNGs into `~/.cache/omarchy/omatty/previews/`,
    busts the image-selector thumbnail cache, then opens `omarchy-menu-images`.
-2. On selection, Style launches a floating terminal running `omatty-set`
+2. On selection, Style launches Omarchy’s floating terminal running `omatty-set`
    (same privilege pattern as Unlock): patches `/etc/vconsole.conf`, restarts
-   `systemd-vconsole-setup`.
+   `systemd-vconsole-setup`. Install / uninstall / arm-all / wipe use the same TTY.
 3. Install also drops the Starship TTY profile + bashrc snippet.
 
 CLI:
