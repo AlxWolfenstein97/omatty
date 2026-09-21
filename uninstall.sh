@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Menu, starship TTY wiring, cache/state. Clears FONT= + DRM udev in this TTY
-# (sudo) + optional y/N pkg drop. --yes does both inline. No floaters.
+# (sudo) + optional y/N pkg drop. --yes does both inline. Prompts stay in this TTY.
 #
 set -euo pipefail
 
@@ -47,7 +47,7 @@ try_pkg_drop() {
 }
 
 ask_pkg_drop() {
-  # Interactive — prompts in this terminal (no floater).
+  # Interactive — prompts in this terminal (this TTY).
   local -a have=()
   local pkg a req
   for pkg in "$@"; do

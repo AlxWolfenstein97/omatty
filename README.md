@@ -150,22 +150,24 @@ Style menu helper: `./tools/install-style-menu.sh --yes`.
 ```
 
 **Full wipe (this plugin)** — same ease as `install.sh --yes`
-(teardown + `plugin remove`; best-effort `pkg drop` for deps this plugin may
-have pulled — kept only when pacman still needs them elsewhere):
+(full teardown + `plugin remove`; best-effort `pkg drop` for deps this plugin
+may have pulled — kept only when pacman still needs them elsewhere):
 
 ```sh
 ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/uninstall.sh --yes
 ```
 
-**Wipe the whole family** (each plugin’s `uninstall.sh --yes`, then a final
-shared-dep sweep — paint / hooks / menus / DRM / SDDM / root extras gone):
+**Wipe the whole family** (runs each plugin’s `uninstall.sh --yes` — same full
+teardown as a single-plugin wipe — then a final shared-dep sweep):
 
 ```sh
 ~/.config/omarchy/plugins/io.github.alxwolfenstein97.chroma/tools/wipe-all-family.sh
 ```
 
 Interactive `./install.sh` still asks [Y/n] if you prefer. Quiet shell restarts
-only restore what you already armed. `./uninstall.sh` clears the arm flags.
+only restore what you already armed. `./uninstall.sh --yes` is a full wipe for
+that plugin (same teardown family wipe runs); without `--yes` you get TTY
+prompts for optional package drops.
 
 
 
@@ -213,14 +215,14 @@ omatty clear                # drop FONT=, live default8x16, refresh initramfs (s
 omatty current
 ```
 
-Encrypted installs bake `FONT=` into the initramfs (`consolefont` / Plymouth). `omatty set` and `omatty clear` run `limine-mkinitcpio` afterward so the LUKS prompt and early TTY match — leave the floater open until that finishes.
+Encrypted installs bake `FONT=` into the initramfs (`consolefont` / Plymouth). `omatty set` and `omatty clear` run `limine-mkinitcpio` afterward so the LUKS prompt and early TTY match — leave that sudo terminal open until it finishes.
 
 Want even larger glyphs on a live console without changing `FONT=`? `setfont -d`
 doubles whatever face is loaded (horizontal + vertical).
 
 Install does **not** force the DRM udev rule — optional for single-GPU / VFIO
-hops only. The package floater asks y/N in the **same** window as Pillow/Terminus
-(default No; Done closes normally). Arm later anytime:
+hops only. Interactive `install.sh` asks y/N in the same TTY as Pillow/Terminus
+(default No). Arm later anytime:
 
 ```sh
 omatty install-drm
@@ -231,9 +233,9 @@ omatty install-drm
 
 ```sh
 omarchy plugin add https://github.com/AlxWolfenstein97/omatty.git --enable
-# Floater: pillow + terminus (scanned); optional DRM y/N in the same window (default N)
+# install.sh TTY: pillow + terminus (scanned); optional DRM y/N (default N)
 # Style → TTY Fonts appears without a shell restart
-# Pick ter-v32b → floater runs limine-mkinitcpio; Ctrl+Alt+F3 fat; reboot → LUKS/early TTY fat too
+# Pick ter-v32b → sudo terminal runs limine-mkinitcpio; Ctrl+Alt+F3 fat; reboot → LUKS/early TTY fat too
 omatty current
 omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 
@@ -241,10 +243,9 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 #   omatty install-drm
 #   ls /etc/udev/rules.d/99-omatty-reapply.rules /usr/local/lib/omatty/reapply
 
-# plugin add alone + reboot → still no floater (quiet skips pkgs); run install.sh for deps/hooks
-# ./uninstall.sh → this TTY: udev off, clear FONT=, setfont default8x16, limine-mkinitcpio, optional pkg drop
-#   reboot → unlock + TTY back to stock size (encrypted and plain)
-# Skip pkg prompts (n) + disable → reinstall → uninstall again → answer prompts in TTY
+# plugin add alone + reboot → quiet restores wiring only; run install.sh / arm-all for deps/hooks
+# ./uninstall.sh --yes → full teardown (DRM udev, FONT=, pkgs if unused) — same as family wipe for this plugin
+# Interactive ./uninstall.sh → TTY prompts for optional pkg drop
 # Pillow drop with mangohud/goverlay installed → fails Required By; that is fine
 ```
 
@@ -257,9 +258,9 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 | `omarchy pkg drop python-pillow` | Optional. Only if nothing else needs Pillow. Offered as a TTY y/N on uninstall. |
 | `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces. |
 
-Quiet Service install (`--quiet`): **no package floaters** — restores already-armed
-wiring only (DRM udev only if already passwordless). Deps + Style consent + DRM
-reapply come from interactive `install.sh`, `--yes --with-drm-reapply`, or family
+Quiet Service install (`--quiet`): restores already-armed wiring only
+(DRM udev only if already passwordless). Deps + Style consent + DRM reapply come
+from interactive `install.sh`, `--yes --with-drm-reapply`, or family
 `arm-all-family.sh`. Menu + `rescanPlugins` so Style → TTY Fonts shows without a
 manual shell restart.
 
