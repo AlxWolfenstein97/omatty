@@ -6,12 +6,13 @@
 # Pulls python-pillow + terminus-font so every curated tile is a real mockup.
 #
 # Flags:
-#   --quiet   less chatter (used by the shell service on startup)
+#   --quiet   shell service: restore armed wiring; no pkg floaters
 #
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 quiet=0
+no_pkgs=0
 with_style_menu=0
 with_theme_hook=0
 arm_all=0
@@ -22,7 +23,8 @@ for arg in "$@"; do
     --with-style-menu) with_style_menu=1 ;;
     --arm-all) arm_all=1 ;;
     --yes|-y) assume_yes=1; arm_all=1 ;;
-    --quiet) quiet=1 ;;
+    --quiet) quiet=1; no_pkgs=1 ;;  # Service: no pkg floaters; arm-all / interactive own deps
+    --no-pkgs) no_pkgs=1 ;;
     --with-drm-reapply|--with-drm) with_drm=1 ;;
   esac
 done
@@ -414,7 +416,9 @@ EOF
 # carousel shows — install both before warming so every tile is a real mockup.
 # Interactive: ask in this TTY. Quiet/Service: one floating terminal once
 # (pkgs-prompted), once per login session (runtime stamp); again after reboot or reinstall.
-pull_pkgs python-pillow terminus-font || true
+if (( ! no_pkgs )); then
+  pull_pkgs python-pillow terminus-font || true
+fi
 
 if (( arm_style_menu )); then
 # Style extenders share omarchy-menu.jsonc — flock so parallel Services don't
