@@ -1188,6 +1188,18 @@ def install_starship_tty(*, quiet: bool = False) -> None:
     cfg = paths()["config"]
     cfg.mkdir(parents=True, exist_ok=True)
     starship_path = cfg / "starship-tty.toml"
+    prebak = cfg / "starship-tty.toml.omatty-prebak"
+    managed_marker = "managed by omatty"
+
+    if starship_path.is_file():
+        existing = starship_path.read_text(encoding="utf-8")
+        if managed_marker not in existing.lower():
+            # User (or another tool) already has a profile — preserve once.
+            if not prebak.is_file():
+                prebak.write_text(existing, encoding="utf-8")
+                if not quiet:
+                    note(f"preserved existing starship profile → {prebak}")
+
     atomic_write(starship_path, STARSHIP_TTY)
 
     snippet = STARSHIP_SNIPPET.replace("__STARSHIP_PATH__", str(starship_path))
@@ -1221,16 +1233,27 @@ def uninstall_starship_tty() -> None:
             atomic_write(bashrc, remove_marked(content, BASHRC_START, BASHRC_END))
     cfg = paths()["config"]
     starship = cfg / "starship-tty.toml"
-    starship.unlink(missing_ok=True)
+    prebak = cfg / "starship-tty.toml.omatty-prebak"
+    managed_marker = "managed by omatty"
+
+    if starship.is_file():
+        text = starship.read_text(encoding="utf-8")
+        if managed_marker in text.lower():
+            starship.unlink(missing_ok=True)
+            # Restore the user's pre-OmaTTY profile when we saved one.
+            if prebak.is_file():
+                prebak.rename(starship)
+        # else: foreign/user file — leave it alone; also leave any prebak.
+
+    # Only remove the config dir if it is empty — never rglob-delete user files.
     if cfg.is_dir():
-        # We own ~/.config/omarchy/omatty — drop the whole tree if empty-ish.
         try:
-            for path in sorted(cfg.rglob("*"), reverse=True):
-                if path.is_file() or path.is_symlink():
-                    path.unlink(missing_ok=True)
-                elif path.is_dir():
-                    path.rmdir()
-            cfg.rmdir()
+            next(cfg.iterdir())
+        except StopIteration:
+            try:
+                cfg.rmdir()
+            except OSError:
+                pass
         except OSError:
             pass
 

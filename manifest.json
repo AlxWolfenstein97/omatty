@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.alxwolfenstein97.omatty",
   "name": "OmaTTY",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "AlxWolfenstein97",
   "license": "MIT",
   "description": "Style menu TTY/console fonts with PSF mockups. Not broken \u2014 read the git README to arm the Style menu after install.",
