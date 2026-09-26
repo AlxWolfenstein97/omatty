@@ -102,10 +102,13 @@ mkdir -p "$(dirname "$menu_lock")"
   "$here/bin/omatty" uninstall-menu || true
 ) 9>"$menu_lock"
 
-rm -rf "$cache" "$config"
+rm -rf "$cache"
+# Do not rm -rf "$config" — users may keep files under ~/.config/omarchy/omatty.
+# uninstall_starship_tty already removed/restored OmaTTY-owned starship files.
+rmdir "$config" 2>/dev/null || true
 find "$state" -mindepth 1 ! -name uninstalled -delete 2>/dev/null || true
 touch "$state/uninstalled"
-note "cleared state/cache/config (tombstone left so quiet install cannot resurrect)"
+note "cleared state/cache; config dir left if it still has user files"
 
 omarchy-shell -q omarchy.menu refresh >/dev/null 2>&1 || true
 omarchy-shell -q shell rescanPlugins >/dev/null 2>&1 || true
