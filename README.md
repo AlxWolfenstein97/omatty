@@ -150,8 +150,8 @@ Style menu helper: `./tools/install-style-menu.sh --yes`.
 ```
 
 **Full wipe (this plugin)** — same ease as `install.sh --yes`
-(full teardown + `plugin remove`; best-effort `pkg drop` for deps this plugin
-may have pulled — kept only when pacman still needs them elsewhere):
+(full teardown + `plugin remove`; best-effort `pkg drop` only for packages this install
+recorded pulling (pre-existing deps stay) — kept only when pacman still needs them elsewhere):
 
 ```sh
 ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/uninstall.sh --yes
@@ -254,7 +254,7 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 | Action | What happens |
 |--------|----------------|
 | `omarchy plugin disable …` | Shell service stops. No theme-set hook — last `FONT=` / DRM reapply udev stay. |
-| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, config/cache/state gone. This TTY drops DRM udev first, then `omatty clear` (strips `FONT=`, live `setfont default8x16`, then `limine-mkinitcpio` so encrypted/LUKS early boot is not stuck on fat Terminus baked into the initramfs). Optional y/N `pkg drop`. |
+| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, config/cache/state gone. This TTY drops DRM udev first, then `omatty clear` (strips `FONT=`, live `setfont default8x16`, then `limine-mkinitcpio` so encrypted/LUKS early boot is not stuck on fat Terminus baked into the initramfs). Optional y/N `pkg drop` of packages this install recorded pulling. |
 | `omarchy pkg drop python-pillow` | Optional. Only if nothing else needs Pillow. Offered as a TTY y/N on uninstall. |
 | `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces. |
 
@@ -264,7 +264,7 @@ from interactive `install.sh`, `--yes --with-drm-reapply`, or family
 `arm-all-family.sh`. Menu + `rescanPlugins` so Style → TTY Fonts shows without a
 manual shell restart.
 
-**Full wipe** — one shot (`--yes` skips pkg Y/n, best-effort drops deps this plugin may have pulled if nothing else needs them, and removes the plugin):
+**Full wipe** — one shot (`--yes` skips pkg Y/n, best-effort drops packages this install recorded pulling (if nothing else needs them), and removes the plugin):
 
 ```sh
 ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/uninstall.sh --yes

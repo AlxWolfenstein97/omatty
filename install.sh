@@ -288,6 +288,11 @@ EOF
       warn "OmaTTY could not install: ${missing[*]}"
       return 1
     fi
+    mkdir -p "$state"
+    for pkg in "${missing[@]}"; do
+      grep -qxF "$pkg" "$state/pkgs-installed" 2>/dev/null \
+        || printf '%s\n' "$pkg" >>"$state/pkgs-installed"
+    done
     rm -f "$pkgs_stamp"
   fi
   if (( want_drm )); then

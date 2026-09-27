@@ -106,6 +106,8 @@ rm -rf "$cache"
 # Do not rm -rf "$config" — users may keep files under ~/.config/omarchy/omatty.
 # uninstall_starship_tty already removed/restored OmaTTY-owned starship files.
 rmdir "$config" 2>/dev/null || true
+# Remember packages *this* install pulled before wiping state.
+mapfile -t pkgs_we_pulled < <(grep -v '^[[:space:]]*$' "$state/pkgs-installed" 2>/dev/null || true)
 find "$state" -mindepth 1 ! -name uninstalled -delete 2>/dev/null || true
 touch "$state/uninstalled"
 note "cleared state/cache; config dir left if it still has user files"
@@ -130,8 +132,12 @@ if (( assume_yes )); then
   else
     note "clear failed — try: sudo setfont default8x16 && sudo limine-mkinitcpio"
   fi
-  note "full wipe (--yes): trying package drops (kept if still required elsewhere)"
-  try_pkg_drop python-pillow terminus-font
+  if ((${#pkgs_we_pulled[@]})); then
+    note "full wipe (--yes): dropping only packages this install recorded pulling"
+    try_pkg_drop "${pkgs_we_pulled[@]}"
+  else
+    note "no package ledger — skipping pkg drop (nothing this install recorded pulling)"
+  fi
 else
   note "resetting FONT= / DRM udev (may prompt for sudo)"
   udev_teardown
@@ -140,7 +146,11 @@ else
   else
     note "clear failed — try: sudo setfont default8x16 && sudo limine-mkinitcpio"
   fi
-  ask_pkg_drop python-pillow terminus-font
+  if ((${#pkgs_we_pulled[@]})); then
+    ask_pkg_drop "${pkgs_we_pulled[@]}"
+  else
+    note "no package ledger — skipping pkg drop (nothing this install recorded pulling)"
+  fi
 fi
 
 note "done — no omatty menu or starship TTY profile left"
