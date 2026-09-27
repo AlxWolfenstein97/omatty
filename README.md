@@ -158,11 +158,34 @@ recorded pulling (pre-existing deps stay) — kept only when pacman still needs 
 ```
 
 **Wipe the whole family** (runs each plugin’s `uninstall.sh --yes` — same full
-teardown as a single-plugin wipe — then a final shared-dep sweep):
+teardown as a single-plugin wipe; ledger-only pkg drops, no blanket shared-dep sweep):
 
 ```sh
 ~/.config/omarchy/plugins/io.github.alxwolfenstein97.chroma/tools/wipe-all-family.sh
+# optional virgin bookkeeping: add --purge-tombstones
 ```
+
+### Tombstones (after wipe)
+
+Each `uninstall.sh` leaves `~/.local/state/omarchy/<plugin>/uninstalled` so a
+**same-session** boom-out → boom-in can reset package-prompt stamps / shared
+Pillow claims and feel like a fresh install. Logout/reboot already clear those
+runtime stamps; long-term the file is harmless bookkeeping. Quiet Service does
+**not** re-arm Style from the tombstone — that needs a loud `install.sh` (or
+`--yes` / family arm).
+
+Smash tombstones only for virgin bookkeeping (never coming back / OCD clean):
+
+```sh
+rm -f ~/.local/state/omarchy/{chroma,omacursor,omaobs,omahud,omaboot,omavt,omatty}/uninstalled
+```
+
+Or fold that into the family wipe:
+
+```sh
+~/.config/omarchy/plugins/io.github.alxwolfenstein97.chroma/tools/wipe-all-family.sh --purge-tombstones
+```
+
 
 Interactive `./install.sh` still asks [Y/n] if you prefer. Quiet shell restarts
 only restore what you already armed. `./uninstall.sh --yes` is a full wipe for
@@ -254,9 +277,9 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 | Action | What happens |
 |--------|----------------|
 | `omarchy plugin disable …` | Shell service stops. No theme-set hook — last `FONT=` / DRM reapply udev stay. |
-| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, config/cache/state gone. This TTY drops DRM udev first, then `omatty clear` (strips `FONT=`, live `setfont default8x16`, then `limine-mkinitcpio` so encrypted/LUKS early boot is not stuck on fat Terminus baked into the initramfs). Optional y/N `pkg drop` of packages this install recorded pulling. |
-| `omarchy pkg drop python-pillow` | Optional. Only if nothing else needs Pillow. Offered as a TTY y/N on uninstall. |
-| `omarchy pkg drop terminus-font` | Optional. Only if you no longer want Terminus console faces. |
+| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, cache/state gone; OmaTTY-owned starship files removed (config dir kept if you left other files). This TTY drops DRM udev first, then `omatty clear` (strips `FONT=`, live `setfont default8x16`, then `limine-mkinitcpio` so encrypted/LUKS early boot is not stuck on fat Terminus baked into the initramfs). Optional y/N `pkg drop` of packages this install recorded pulling. |
+| `omarchy pkg drop python-pillow` | Optional — only if this install recorded pulling it. TTY y/N on uninstall. |
+| `omarchy pkg drop terminus-font` | Optional — only if this install recorded pulling it. |
 
 Quiet Service install (`--quiet`): restores already-armed wiring only
 (DRM udev only if already passwordless). Deps + Style consent + DRM reapply come
