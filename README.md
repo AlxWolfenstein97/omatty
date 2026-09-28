@@ -230,11 +230,11 @@ omatty set ter-v32b         # apply (sudo)
 omatty set ter-v32b --dry-run
 omatty reapply              # setfont again from current FONT= (sudo; active VT)
 omatty reapply --all-vts    # optional chvt sweep — only with SDDM stopped
-omatty clear                # drop FONT=, live default8x16, refresh initramfs (sudo)
+omatty clear                # pin default8x16 in conf+UKI, drop starship TTY wiring (sudo)
 omatty current
 ```
 
-Encrypted installs bake `FONT=` into the initramfs (`consolefont` / Plymouth). `omatty set` and `omatty clear` run `limine-mkinitcpio` afterward so the LUKS prompt and early TTY match — leave that sudo terminal open until it finishes.
+Encrypted installs bake `FONT=` into the initramfs. `omatty set` and `omatty clear` run `limine-mkinitcpio` afterward — leave that sudo terminal open until it finishes. Wipe/`clear` leaves Arch `default8x16` in conf + UKI so the next boot stays stock-sized.
 
 Want even larger glyphs on a live console without changing `FONT=`? `setfont -d`
 doubles whatever face is loaded (horizontal + vertical).
@@ -263,7 +263,7 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 #   ls /etc/udev/rules.d/99-omatty-reapply.rules /usr/local/lib/omatty/reapply
 
 # plugin add alone + reboot → quiet restores wiring only; run install.sh / arm-all for deps/hooks
-# ./uninstall.sh --yes → full teardown (DRM udev, FONT=, pkgs if unused) — same as family wipe for this plugin
+# ./uninstall.sh --yes → full teardown (DRM udev, FONT= → default8x16, pkgs if unused)
 # Interactive ./uninstall.sh → TTY prompts for optional pkg drop
 # Pillow drop with mangohud/goverlay installed → fails Required By; that is fine
 ```
@@ -273,7 +273,7 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 | Action | What happens |
 |--------|----------------|
 | `omarchy plugin disable …` | Shell service stops. No theme-set hook — last `FONT=` / DRM reapply udev stay. |
-| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, cache/state gone; OmaTTY-owned starship files removed (config dir kept if you left other files). Elevates `omatty clear`: strips Terminus/`ter-v*` `FONT=`, **pins `FONT=default8x16`**, rebuilds UKI without capturing limine, and byte-checks the UKI consolefont is stock (not “no font” — empty FONT drops the consolefont hook and HiDPI TTYs stay huge). **`--yes` aborts plugin remove if that check fails**. Live gettys may stay large until reboot. Optional ledger `pkg drop`. |
+| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, cache/state gone; OmaTTY-owned starship files removed (config dir kept if you left other files). Elevates `omatty clear` (pins `FONT=default8x16` into conf + UKI; `--yes` aborts plugin remove if that fails). Live gettys may stay large until reboot. Optional ledger `pkg drop`. |
 | `omarchy pkg drop python-pillow` | Optional — only if this install recorded pulling it; may fail/stay if something else still requires it. TTY y/N on uninstall. |
 | `omarchy pkg drop terminus-font` | Optional — only if this install recorded pulling it; may fail/stay if something else still requires it. |
 

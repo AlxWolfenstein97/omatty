@@ -85,9 +85,6 @@ ask_pkg_drop() {
   done
 }
 
-
-
-
 export OMATTY_PLUGIN_DIR="$here"
 
 mkdir -p "$state"
@@ -127,67 +124,33 @@ udev_teardown() {
 clear_ok=0
 if (( assume_yes )); then
   note "full wipe (--yes): resetting FONT= / DRM udev inline"
-  udev_teardown
-  # One elevate: strip Terminus, pin default8x16, limine (no pipe capture),
-  # verify UKI consolefont bytes match stock.
-  if elevate "$here/bin/omatty" clear; then
-    note "vconsole FONT=default8x16 + UKI stock consolefont (next boot small)"
-    clear_ok=1
-  else
-    note "clear reported failure — retrying limine-mkinitcpio + stock UKI check"
-    if elevate /bin/sh -c '
-      set -e
-      # Pin stock if clear died mid-flight
-      if ! grep -qx "FONT=default8x16" /etc/vconsole.conf 2>/dev/null; then
-        tmp=$(mktemp)
-        grep -v "^FONT=" /etc/vconsole.conf >"$tmp" 2>/dev/null || true
-        printf "\n# Stock console font (OmaTTY clear → default8x16)\nFONT=default8x16\n" >>"$tmp"
-        cp -- "$tmp" /etc/vconsole.conf
-        rm -f "$tmp"
-      fi
-      if command -v limine-mkinitcpio >/dev/null 2>&1; then limine-mkinitcpio
-      elif command -v mkinitcpio >/dev/null 2>&1; then mkinitcpio -P
-      else exit 1
-      fi
-      uki=$(ls -1 /boot/EFI/Linux/*.efi 2>/dev/null | head -1)
-      [[ -n $uki ]] || exit 1
-      lsinitcpio "$uki" 2>/dev/null | grep -q "consolefont.psfu"
-      grep -qx "FONT=default8x16" /etc/vconsole.conf
-    '; then
-      note "fallback UKI rebuild looks stock (default8x16)"
-      clear_ok=1
-    else
-      note "UKI still not stock default8x16 — next reboot will stay fat"
-    fi
-  fi
-  if ((${#pkgs_we_pulled[@]})); then
+else
+  note "resetting FONT= / DRM udev (may prompt for sudo)"
+fi
+udev_teardown
+if elevate "$here/bin/omatty" clear; then
+  note "console font reset to default8x16 (conf + UKI)"
+  clear_ok=1
+else
+  note "clear failed — run: sudo $here/bin/omatty clear"
+fi
+
+if ((${#pkgs_we_pulled[@]})); then
+  if (( assume_yes )); then
     note "full wipe (--yes): dropping only packages this install recorded pulling"
     try_pkg_drop "${pkgs_we_pulled[@]}"
   else
-    note "no package ledger — skipping pkg drop (nothing this install recorded pulling)"
+    ask_pkg_drop "${pkgs_we_pulled[@]}"
   fi
 else
-  note "resetting FONT= / DRM udev (may prompt for sudo)"
-  udev_teardown
-  if elevate "$here/bin/omatty" clear; then
-    note "vconsole FONT=default8x16 + UKI stock consolefont (next boot small)"
-    clear_ok=1
-  else
-    note "clear failed — run: sudo $here/bin/omatty clear"
-    note "  (must finish limine-mkinitcpio; do not Ctrl-C mid-rebuild)"
-  fi
-  if ((${#pkgs_we_pulled[@]})); then
-    ask_pkg_drop "${pkgs_we_pulled[@]}"
-  else
-    note "no package ledger — skipping pkg drop (nothing this install recorded pulling)"
-  fi
+  note "no package ledger — skipping pkg drop (nothing this install recorded pulling)"
 fi
 
 note "done — no omatty menu or starship TTY profile left"
 if (( assume_yes )); then
   if (( ! clear_ok )); then
     note "ABORT plugin remove — fix boot font first: sudo $here/bin/omatty clear"
-    note "  leaving plugin installed so clear/limine stay available"
+    note "  leaving plugin installed so clear stays available"
     exit 1
   fi
   note "full wipe (--yes): removing plugin $plugin_id"
