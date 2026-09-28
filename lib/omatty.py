@@ -1335,21 +1335,59 @@ def uninstall_starship_tty() -> None:
             pass
 
 
-def clear_vconsole_font(*, quiet: bool = False) -> None:
-    """Remove OmaTTY’s managed FONT= block (stock Omarchy leaves FONT unset)."""
-    existing = read_vconsole()
-    if VCONSOLE_START not in existing:
-        if not quiet:
-            note("no omatty FONT= block in vconsole.conf")
-        return
-    cleaned = remove_marked(existing, VCONSOLE_START, VCONSOLE_END)
-    # Collapse leftover blank runs from the removed block.
+def managed_font_stems() -> set[str]:
+    """Console font stems Style → TTY Fonts can write (ownership for clear)."""
+    return {item["file"] for item in CURATED}
+
+
+def strip_managed_font_lines(text: str) -> tuple[str, list[str]]:
+    """Drop FONT= lines for curated / ter-v* faces (even if markers were lost)."""
+    stems = managed_font_stems()
+    dropped: list[str] = []
+    out: list[str] = []
+    for line in text.splitlines():
+        match = re.match(r"^FONT=(.*)$", line)
+        if match:
+            stem = match.group(1).strip().strip("\"'")
+            if stem in stems or stem.startswith("ter-v"):
+                dropped.append(stem)
+                continue
+        out.append(line)
+    cleaned = "\n".join(out)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-    if not cleaned.endswith("\n"):
+    if cleaned and not cleaned.endswith("\n"):
         cleaned += "\n"
+    elif not cleaned:
+        cleaned = "\n"
+    return cleaned, dropped
+
+
+def clear_vconsole_font(*, quiet: bool = False) -> None:
+    """Remove OmaTTY-managed FONT= so limine cannot re-bake fat Terminus.
+
+    Strips the marked block when present, then any curated/ter-v* FONT= line
+    even if markers were lost (otherwise next boot stays huge).
+    """
+    existing = read_vconsole()
+    cleaned = existing
+    if VCONSOLE_START in existing:
+        cleaned = remove_marked(existing, VCONSOLE_START, VCONSOLE_END)
+        if not quiet:
+            note("cleared omatty marker block from vconsole.conf")
+    cleaned, dropped = strip_managed_font_lines(cleaned)
+    if dropped and not quiet:
+        note(f"stripped managed FONT= ({', '.join(dropped)})")
+    if cleaned == existing:
+        if not quiet:
+            note("no omatty-managed FONT= in vconsole.conf")
+        return
     write_vconsole(cleaned)
+    after = read_vconsole()
+    _, still = strip_managed_font_lines(after)
+    if still:
+        raise RuntimeError(f"FONT= still present after clear: {', '.join(still)}")
     if not quiet:
-        note("cleared omatty FONT= from vconsole.conf")
+        note("vconsole.conf has no omatty-managed FONT=")
 
 
 def cmd_clear(args: argparse.Namespace) -> int:
@@ -1384,6 +1422,17 @@ def cmd_clear(args: argparse.Namespace) -> int:
         expect_no_consolefont=True,
     )
     if not initrd_ok:
+        return 1
+    # Final belt: conf must still be clean (nothing re-wrote FONT= mid-limine).
+    try:
+        _, still = strip_managed_font_lines(read_vconsole())
+    except Exception as error:  # noqa: BLE001
+        if not args.quiet:
+            note(f"could not re-read vconsole.conf after UKI rebuild ({error})")
+        return 1
+    if still:
+        if not args.quiet:
+            note(f"FONT= came back during UKI rebuild ({', '.join(still)}) — clear failed")
         return 1
     return 0
 

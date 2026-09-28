@@ -124,25 +124,31 @@ udev_teardown() {
   fi
 }
 
+clear_ok=0
 if (( assume_yes )); then
   note "full wipe (--yes): resetting FONT= / DRM udev inline"
   udev_teardown
-  # One elevate covers conf strip + chvt setfont sweep + limine-mkinitcpio.
+  # One elevate: conf strip + limine (no pipe capture) + UKI consolefont check.
   if elevate "$here/bin/omatty" clear; then
-    note "vconsole FONT= cleared + live face → default8x16 + boot image refresh"
+    note "vconsole FONT= cleared + UKI consolefont dropped (next boot stock face)"
+    clear_ok=1
   else
-    note "clear reported failure — forcing setfont default8x16 on tty1-6"
-    elevate /bin/sh -c '
-      for n in 1 2 3 4 5 6; do
-        setfont default8x16 -C /dev/tty"$n" 2>/dev/null \
-          || setfont default8x16 <>/dev/tty"$n" 2>/dev/null \
-          || true
-      done
-      if command -v limine-mkinitcpio >/dev/null 2>&1; then limine-mkinitcpio || true
-      elif command -v mkinitcpio >/dev/null 2>&1; then mkinitcpio -P || true
+    note "clear reported failure — retrying limine-mkinitcpio + UKI check"
+    if elevate /bin/sh -c '
+      set -e
+      if command -v limine-mkinitcpio >/dev/null 2>&1; then limine-mkinitcpio
+      elif command -v mkinitcpio >/dev/null 2>&1; then mkinitcpio -P
+      else exit 1
       fi
-    ' || true
-    note "if TTYs still fat: reboot (conf/initramfs) or: sudo setfont default8x16"
+      uki=$(ls -1 /boot/EFI/Linux/*.efi 2>/dev/null | head -1)
+      [[ -n $uki ]] || exit 1
+      ! lsinitcpio "$uki" 2>/dev/null | grep -qE "consolefont\\.psf|hooks/consolefont"
+    '; then
+      note "fallback UKI rebuild looks clean"
+      clear_ok=1
+    else
+      note "UKI still has consolefont — next reboot will stay fat"
+    fi
   fi
   if ((${#pkgs_we_pulled[@]})); then
     note "full wipe (--yes): dropping only packages this install recorded pulling"
@@ -154,20 +160,11 @@ else
   note "resetting FONT= / DRM udev (may prompt for sudo)"
   udev_teardown
   if elevate "$here/bin/omatty" clear; then
-    note "vconsole FONT= cleared + live face → default8x16 + boot image refresh"
+    note "vconsole FONT= cleared + UKI consolefont dropped (next boot stock face)"
+    clear_ok=1
   else
-    note "clear reported failure — forcing setfont default8x16 on tty1-6"
-    elevate /bin/sh -c '
-      for n in 1 2 3 4 5 6; do
-        setfont default8x16 -C /dev/tty"$n" 2>/dev/null \
-          || setfont default8x16 <>/dev/tty"$n" 2>/dev/null \
-          || true
-      done
-      if command -v limine-mkinitcpio >/dev/null 2>&1; then limine-mkinitcpio || true
-      elif command -v mkinitcpio >/dev/null 2>&1; then mkinitcpio -P || true
-      fi
-    ' || true
-    note "if TTYs still fat: reboot (conf/initramfs) or: sudo setfont default8x16"
+    note "clear failed — run: sudo $here/bin/omatty clear"
+    note "  (must finish limine-mkinitcpio; do not Ctrl-C mid-rebuild)"
   fi
   if ((${#pkgs_we_pulled[@]})); then
     ask_pkg_drop "${pkgs_we_pulled[@]}"
@@ -178,6 +175,11 @@ fi
 
 note "done — no omatty menu or starship TTY profile left"
 if (( assume_yes )); then
+  if (( ! clear_ok )); then
+    note "ABORT plugin remove — fix boot font first: sudo $here/bin/omatty clear"
+    note "  leaving plugin installed so clear/limine stay available"
+    exit 1
+  fi
   note "full wipe (--yes): removing plugin $plugin_id"
   if command -v omarchy >/dev/null 2>&1; then
     # Leave the tree before Omarchy deletes it out from under us.
