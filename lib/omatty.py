@@ -64,6 +64,11 @@ ImageDraw = _PilProxy("ImageDraw")
 ImageFont = _PilProxy("ImageFont")
 
 PLUGIN_ID = "io.github.alxwolfenstein97.omatty"
+# Wipe/clear must pin this into vconsole + UKI. Stripping FONT= entirely leaves
+# the consolefont hook out of the UKI; early boot never setfonts, and on HiDPI
+# DRM (busy VTs → systemd-vconsole-setup skips) the face stays huge. The brief
+# small flicker during clear is this stem — next boot must bake the same face.
+STOCK_FONT_STEM = "default8x16"
 MENU_START = "  // omatty:start"
 MENU_END = "  // omatty:end"
 BASHRC_START = "# omatty:start"
@@ -980,15 +985,16 @@ def patch_vconsole(existing: str, font_stem: str) -> str:
     return text
 
 
-def _priv(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+def _priv(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[Any]:
     """Run argv as root — direct when already elevated, else sudo.
 
     Wipe/uninstall prefer `elevate omatty clear` so one TTY sudo covers conf
     write + setfont + initramfs. Nested `sudo` inside clear then no-ops as root.
     """
+    kwargs.setdefault("text", True)
     if os.geteuid() == 0:
-        return subprocess.run(argv, check=False, text=True, **kwargs)
-    return subprocess.run(["sudo", *argv], check=False, text=True, **kwargs)
+        return subprocess.run(argv, check=False, **kwargs)
+    return subprocess.run(["sudo", *argv], check=False, **kwargs)
 
 
 def apply_setfont(
@@ -1047,7 +1053,7 @@ def uki_paths() -> list[Path]:
 
 
 def uki_still_has_consolefont() -> bool | None:
-    """True = consolefont still baked; False = clean; None = could not check."""
+    """True = any consolefont baked; False = none; None = could not check."""
     if not shutil.which("lsinitcpio"):
         return None
     ukis = uki_paths()
@@ -1060,30 +1066,95 @@ def uki_still_has_consolefont() -> bool | None:
             continue
         saw_any = True
         listing = result.stdout or ""
-        if "consolefont.psf" in listing or "hooks/consolefont" in listing:
+        if (
+            "consolefont.psf" in listing
+            or "consolefont.psfu" in listing
+            or "hooks/consolefont" in listing
+        ):
             return True
     if not saw_any:
         return None
     return False
 
 
+def _stock_font_bytes() -> bytes | None:
+    path = resolve_font_file(STOCK_FONT_STEM)
+    if path is None:
+        return None
+    try:
+        return _read_font_bytes(path)
+    except OSError:
+        return None
+
+
+def uki_consolefont_is_stock() -> bool | None:
+    """True = every UKI consolefont matches STOCK_FONT_STEM; False = fat/missing; None = unchecked."""
+    if not shutil.which("lsinitcpio"):
+        return None
+    stock = _stock_font_bytes()
+    if stock is None:
+        return None
+    ukis = uki_paths()
+    if not ukis:
+        return None
+    checked = False
+    for uki in ukis:
+        listing = _priv(["lsinitcpio", str(uki)], capture_output=True)
+        if listing.returncode != 0:
+            continue
+        names = listing.stdout or ""
+        cand = None
+        if "consolefont.psfu" in names:
+            cand = "consolefont.psfu"
+        elif "consolefont.psf" in names:
+            cand = "consolefont.psf"
+        if cand is None:
+            return False
+        with tempfile.TemporaryDirectory(prefix="omatty-uki-font.") as tmp:
+            result = _priv(
+                ["lsinitcpio", "-x", str(uki), cand],
+                capture_output=True,
+                cwd=tmp,
+            )
+            if result.returncode != 0:
+                return False
+            baked = Path(tmp) / cand
+            if not baked.is_file():
+                found = list(Path(tmp).rglob(cand))
+                if not found:
+                    return False
+                baked = found[0]
+            got = _priv(["cat", "--", str(baked)], capture_output=True, text=False)
+            if got.returncode != 0 or not got.stdout:
+                return False
+            checked = True
+            if got.stdout != stock:
+                return False
+    if not checked:
+        return None
+    return True
+
+
 def refresh_initramfs(
     *,
     quiet: bool = False,
-    expect_no_consolefont: bool = False,
+    expect_stock_consolefont: bool = False,
 ) -> bool:
     """Rebuild the boot image so early userspace / LUKS matches vconsole FONT=.
 
     Omarchy’s mkinitcpio hooks (`consolefont`, and often `FILES+=(/etc/vconsole.conf)`
     for Plymouth) bake the current FONT into the initramfs/UKI. Clearing
-    /etc/vconsole.conf alone leaves fat Terminus on the next encrypted boot
-    until limine-mkinitcpio runs. Same for set — unlock prompt would lag.
+    Terminus from /etc/vconsole.conf alone leaves fat glyphs on the next
+    encrypted boot until limine-mkinitcpio runs. Same for set — unlock prompt
+    would lag.
 
     Never capture limine/mkinitcpio stdout — chatty builders can fill the pipe
-    and deadlock; conf looks cleared while the UKI still carries consolefont.psf
+    and deadlock; conf looks cleared while the UKI still carries fat Terminus
     (fat on next reboot). Inherit the TTY (or DEVNULL when quiet).
 
-    expect_no_consolefont: after clear, verify UKIs dropped consolefont.psf.
+    expect_stock_consolefont: after clear, verify UKI consolefont bytes match
+    STOCK_FONT_STEM (default8x16). Empty FONT= is not enough — no consolefont
+    hook means early boot never setfonts and HiDPI TTYs stay huge.
 
     Returns True when refreshed or safely skipped (fixtures / env); False when
     a builder was needed and every attempt failed (or UKI still baked fat).
@@ -1119,19 +1190,22 @@ def refresh_initramfs(
                 note(f"{' '.join(cmd)} failed (exit {result.returncode})")
             continue
 
-        if expect_no_consolefont:
-            baked = uki_still_has_consolefont()
-            if baked is True:
+        if expect_stock_consolefont:
+            stock_ok = uki_consolefont_is_stock()
+            if stock_ok is True:
                 if not quiet:
-                    note("UKI still has consolefont.psf after rebuild — next boot may stay fat")
+                    note(
+                        f"UKI consolefont is {STOCK_FONT_STEM} — next boot uses stock face"
+                    )
+            elif stock_ok is False:
+                if not quiet:
+                    note(
+                        f"UKI consolefont is not {STOCK_FONT_STEM} after rebuild — next boot may stay fat"
+                    )
                     note("  retry: sudo limine-mkinitcpio")
                 return False
-            if baked is False and not quiet:
-                note("UKI consolefont cleared — next boot uses stock face")
-            elif baked is None and not quiet:
-                note("boot image refreshed (could not lsinitcpio-verify consolefont)")
-            else:
-                pass
+            elif not quiet:
+                note("boot image refreshed (could not lsinitcpio-verify stock consolefont)")
         elif not quiet:
             note(f"boot image refreshed ({cmd[-1] if cmd[-1] != '-P' else 'mkinitcpio -P'})")
         return True
@@ -1362,11 +1436,41 @@ def strip_managed_font_lines(text: str) -> tuple[str, list[str]]:
     return cleaned, dropped
 
 
-def clear_vconsole_font(*, quiet: bool = False) -> None:
-    """Remove OmaTTY-managed FONT= so limine cannot re-bake fat Terminus.
+def fat_font_stems_in(text: str) -> list[str]:
+    """Curated/ter-v* FONT= stems that are *not* the stock pin (still fat after wipe)."""
+    stems = managed_font_stems() - {STOCK_FONT_STEM}
+    found: list[str] = []
+    for line in text.splitlines():
+        match = re.match(r"^FONT=(.*)$", line)
+        if not match:
+            continue
+        stem = match.group(1).strip().strip("\"'")
+        if stem in stems or stem.startswith("ter-v"):
+            found.append(stem)
+    return found
 
-    Strips the marked block when present, then any curated/ter-v* FONT= line
-    even if markers were lost (otherwise next boot stays huge).
+
+def pin_stock_font(text: str) -> str:
+    """Ensure unmarked FONT=STOCK_FONT_STEM (Arch default) after stripping OmaTTY faces."""
+    lines = [ln for ln in text.splitlines() if not re.match(r"^FONT=", ln)]
+    # Drop trailing empty lines before appending.
+    while lines and not lines[-1].strip():
+        lines.pop()
+    lines.append("")
+    lines.append(f"# Stock console font (OmaTTY clear → {STOCK_FONT_STEM})")
+    lines.append(f"FONT={STOCK_FONT_STEM}")
+    text = "\n".join(lines)
+    if not text.endswith("\n"):
+        text += "\n"
+    return text
+
+
+def clear_vconsole_font(*, quiet: bool = False) -> None:
+    """Strip OmaTTY Terminus faces and pin STOCK_FONT_STEM for the next UKI bake.
+
+    Removing FONT= entirely drops the consolefont hook from the UKI — early boot
+    never setfonts, and on HiDPI DRM (vconsole-setup skips busy VTs) the TTY
+    stays huge. Pin Arch default8x16 (same face as the live clear flicker).
     """
     existing = read_vconsole()
     cleaned = existing
@@ -1377,17 +1481,20 @@ def clear_vconsole_font(*, quiet: bool = False) -> None:
     cleaned, dropped = strip_managed_font_lines(cleaned)
     if dropped and not quiet:
         note(f"stripped managed FONT= ({', '.join(dropped)})")
+    cleaned = pin_stock_font(cleaned)
     if cleaned == existing:
         if not quiet:
-            note("no omatty-managed FONT= in vconsole.conf")
+            note(f"vconsole.conf already pinned FONT={STOCK_FONT_STEM}")
         return
     write_vconsole(cleaned)
     after = read_vconsole()
-    _, still = strip_managed_font_lines(after)
+    still = fat_font_stems_in(after)
     if still:
-        raise RuntimeError(f"FONT= still present after clear: {', '.join(still)}")
+        raise RuntimeError(f"FONT= still fat after clear: {', '.join(still)}")
+    if not re.search(rf"^FONT={re.escape(STOCK_FONT_STEM)}\s*$", after, re.M):
+        raise RuntimeError(f"FONT={STOCK_FONT_STEM} missing after clear")
     if not quiet:
-        note("vconsole.conf has no omatty-managed FONT=")
+        note(f"vconsole.conf FONT={STOCK_FONT_STEM} (stock pin for next boot)")
 
 
 def cmd_clear(args: argparse.Namespace) -> int:
@@ -1398,41 +1505,53 @@ def cmd_clear(args: argparse.Namespace) -> int:
             note(f"could not clear vconsole FONT= ({error})")
         return 1
     uninstall_starship_tty()
+    # Drop remembered Style pick so nothing re-applies Terminus later.
+    try:
+        current = paths()["state"] / "current"
+        if current.is_file():
+            current.unlink()
+    except OSError:
+        pass
     # Live poke is best-effort without chvt (no Hypr flicker). Fat gettys until
-    # reboot are fine — wipe’s contract is next boot small via UKI rebuild.
+    # reboot are fine — wipe’s contract is next boot small via UKI stock pin.
     # OMATTY_CLEAR_CHVT=1 restores the force-all-vts sweep if you want it live.
     if os.environ.get("OMATTY_SKIP_SETFONT") != "1":
         chvt = os.environ.get("OMATTY_CLEAR_CHVT", "") == "1"
         live_ok = apply_setfont(
-            "default8x16",
+            STOCK_FONT_STEM,
             restart_vconsole_setup=False,
             force_all_vts=chvt,
         )
         if not args.quiet:
             if live_ok:
                 note(
-                    "live setfont default8x16 attempted"
+                    f"live setfont {STOCK_FONT_STEM} attempted"
                     + (" (chvt sweep)" if chvt else " (no chvt; reboot for all gettys)")
                 )
             else:
                 note("live setfont missed — reboot after UKI refresh is enough")
-    # Must rebuild UKI without capture_output deadlock; verify consolefont gone.
+    # Must rebuild UKI without capture_output deadlock; verify stock face baked.
     initrd_ok = refresh_initramfs(
         quiet=bool(args.quiet),
-        expect_no_consolefont=True,
+        expect_stock_consolefont=True,
     )
     if not initrd_ok:
         return 1
-    # Final belt: conf must still be clean (nothing re-wrote FONT= mid-limine).
+    # Final belt: conf must still be stock (nothing re-wrote Terminus mid-limine).
     try:
-        _, still = strip_managed_font_lines(read_vconsole())
+        after = read_vconsole()
+        still = fat_font_stems_in(after)
     except Exception as error:  # noqa: BLE001
         if not args.quiet:
             note(f"could not re-read vconsole.conf after UKI rebuild ({error})")
         return 1
     if still:
         if not args.quiet:
-            note(f"FONT= came back during UKI rebuild ({', '.join(still)}) — clear failed")
+            note(f"FONT= came back fat during UKI rebuild ({', '.join(still)}) — clear failed")
+        return 1
+    if not re.search(rf"^FONT={re.escape(STOCK_FONT_STEM)}\s*$", after, re.M):
+        if not args.quiet:
+            note(f"FONT={STOCK_FONT_STEM} missing after UKI rebuild — clear failed")
         return 1
     return 0
 
@@ -1676,7 +1795,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     clear = sub.add_parser(
         "clear",
-        help="Remove omatty FONT= block, reset live setfont to default8x16, drop starship TTY wiring (sudo)",
+        help="Strip Terminus FONT=, pin default8x16 into conf+UKI, drop starship TTY wiring (sudo)",
     )
     clear.add_argument("--quiet", action="store_true")
     clear.set_defaults(func=cmd_clear)

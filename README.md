@@ -273,7 +273,7 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 | Action | What happens |
 |--------|----------------|
 | `omarchy plugin disable …` | Shell service stops. No theme-set hook — last `FONT=` / DRM reapply udev stay. |
-| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, cache/state gone; OmaTTY-owned starship files removed (config dir kept if you left other files). Elevates `omatty clear`: strips marked **and** curated/ter-v* `FONT=` lines, rebuilds UKI without capturing limine (avoids pipe deadlock), `lsinitcpio`-checks `consolefont.psf` is gone. **`--yes` aborts plugin remove if that check fails** so a fat UKI is not left behind with no clearer. Live gettys may stay large until reboot. Optional ledger `pkg drop`. |
+| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, cache/state gone; OmaTTY-owned starship files removed (config dir kept if you left other files). Elevates `omatty clear`: strips Terminus/`ter-v*` `FONT=`, **pins `FONT=default8x16`**, rebuilds UKI without capturing limine, and byte-checks the UKI consolefont is stock (not “no font” — empty FONT drops the consolefont hook and HiDPI TTYs stay huge). **`--yes` aborts plugin remove if that check fails**. Live gettys may stay large until reboot. Optional ledger `pkg drop`. |
 | `omarchy pkg drop python-pillow` | Optional — only if this install recorded pulling it; may fail/stay if something else still requires it. TTY y/N on uninstall. |
 | `omarchy pkg drop terminus-font` | Optional — only if this install recorded pulling it; may fail/stay if something else still requires it. |
 
