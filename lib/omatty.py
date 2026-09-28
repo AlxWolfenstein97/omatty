@@ -1004,11 +1004,10 @@ def apply_setfont(
 
     restart_vconsole_setup: Style → set keeps this on (unit re-reads FONT=).
     clear turns it off — restarting *before* setfont can re-apply a fat FONT=
-    still in conf if the write raced/failed, and leaves VTs stuck large when
-    the following setfont is swallowed (old check=False path).
+    still in conf if the write raced/failed.
 
-    force_all_vts: clear/wipe only — chvt sweep even while Wayland is up so
-    inactive gettys drop fat Terminus (udev reapply must not steal the session).
+    force_all_vts: optional chvt sweep (OMATTY_CLEAR_CHVT=1). Default clear does
+    not — live gettys may stay large until reboot; wipe’s contract is next boot.
     """
     if os.environ.get("OMATTY_SKIP_SETFONT") == "1":
         return True
@@ -1037,7 +1036,42 @@ def apply_setfont(
     return result.returncode == 0
 
 
-def refresh_initramfs(*, quiet: bool = False) -> bool:
+def uki_paths() -> list[Path]:
+    root = Path("/boot/EFI/Linux")
+    if not root.is_dir():
+        return []
+    try:
+        return sorted(p for p in root.glob("*.efi") if p.is_file())
+    except OSError:
+        return []
+
+
+def uki_still_has_consolefont() -> bool | None:
+    """True = consolefont still baked; False = clean; None = could not check."""
+    if not shutil.which("lsinitcpio"):
+        return None
+    ukis = uki_paths()
+    if not ukis:
+        return None
+    saw_any = False
+    for uki in ukis:
+        result = _priv(["lsinitcpio", str(uki)], capture_output=True)
+        if result.returncode != 0:
+            continue
+        saw_any = True
+        listing = result.stdout or ""
+        if "consolefont.psf" in listing or "hooks/consolefont" in listing:
+            return True
+    if not saw_any:
+        return None
+    return False
+
+
+def refresh_initramfs(
+    *,
+    quiet: bool = False,
+    expect_no_consolefont: bool = False,
+) -> bool:
     """Rebuild the boot image so early userspace / LUKS matches vconsole FONT=.
 
     Omarchy’s mkinitcpio hooks (`consolefont`, and often `FILES+=(/etc/vconsole.conf)`
@@ -1045,8 +1079,14 @@ def refresh_initramfs(*, quiet: bool = False) -> bool:
     /etc/vconsole.conf alone leaves fat Terminus on the next encrypted boot
     until limine-mkinitcpio runs. Same for set — unlock prompt would lag.
 
+    Never capture limine/mkinitcpio stdout — chatty builders can fill the pipe
+    and deadlock; conf looks cleared while the UKI still carries consolefont.psf
+    (fat on next reboot). Inherit the TTY (or DEVNULL when quiet).
+
+    expect_no_consolefont: after clear, verify UKIs dropped consolefont.psf.
+
     Returns True when refreshed or safely skipped (fixtures / env); False when
-    a builder was needed and every attempt failed.
+    a builder was needed and every attempt failed (or UKI still baked fat).
     """
     if os.environ.get("OMATTY_SKIP_SETFONT") == "1":
         return True
@@ -1069,15 +1109,32 @@ def refresh_initramfs(*, quiet: bool = False) -> bool:
         note("rebuilding boot image so LUKS / early TTY match FONT= (may take a bit)…")
 
     for cmd in builders:
-        result = _priv(cmd, capture_output=True)
-        if result.returncode == 0:
+        if quiet:
+            result = _priv(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            # Inherit stdout/stderr — do not capture_output (pipe deadlock risk).
+            result = _priv(cmd)
+        if result.returncode != 0:
             if not quiet:
-                note(f"boot image refreshed ({cmd[-1] if cmd[-1] != '-P' else 'mkinitcpio -P'})")
-            return True
-        err = (result.stderr or result.stdout or "").strip().splitlines()
-        tail = err[-1] if err else f"exit {result.returncode}"
-        if not quiet:
-            note(f"{' '.join(cmd)} failed: {tail}")
+                note(f"{' '.join(cmd)} failed (exit {result.returncode})")
+            continue
+
+        if expect_no_consolefont:
+            baked = uki_still_has_consolefont()
+            if baked is True:
+                if not quiet:
+                    note("UKI still has consolefont.psf after rebuild — next boot may stay fat")
+                    note("  retry: sudo limine-mkinitcpio")
+                return False
+            if baked is False and not quiet:
+                note("UKI consolefont cleared — next boot uses stock face")
+            elif baked is None and not quiet:
+                note("boot image refreshed (could not lsinitcpio-verify consolefont)")
+            else:
+                pass
+        elif not quiet:
+            note(f"boot image refreshed ({cmd[-1] if cmd[-1] != '-P' else 'mkinitcpio -P'})")
+        return True
 
     if not quiet:
         note("boot image not refreshed — next encrypted boot may keep the old console font")
@@ -1303,27 +1360,29 @@ def cmd_clear(args: argparse.Namespace) -> int:
             note(f"could not clear vconsole FONT= ({error})")
         return 1
     uninstall_starship_tty()
-    # Live TTY keeps the last setfont face until we poke a stock face —
-    # clearing vconsole.conf alone leaves fat Terminus on the current VT.
-    # Do NOT restart systemd-vconsole-setup first (see apply_setfont).
-    # force_all_vts: inactive gettys keep fat faces while Hypr is up unless we
-    # chvt-sweep (udev reapply must not; clear/wipe may flicker briefly).
-    live_ok = True
+    # Live poke is best-effort without chvt (no Hypr flicker). Fat gettys until
+    # reboot are fine — wipe’s contract is next boot small via UKI rebuild.
+    # OMATTY_CLEAR_CHVT=1 restores the force-all-vts sweep if you want it live.
     if os.environ.get("OMATTY_SKIP_SETFONT") != "1":
+        chvt = os.environ.get("OMATTY_CLEAR_CHVT", "") == "1"
         live_ok = apply_setfont(
             "default8x16",
             restart_vconsole_setup=False,
-            force_all_vts=True,
+            force_all_vts=chvt,
         )
         if not args.quiet:
             if live_ok:
-                note("live console face → default8x16 on VTs (stock Omarchy; brief chvt ok on wipe)")
+                note(
+                    "live setfont default8x16 attempted"
+                    + (" (chvt sweep)" if chvt else " (no chvt; reboot for all gettys)")
+                )
             else:
-                note("could not reset live setfont — reboot or: sudo setfont default8x16")
-    # Encrypted / consolefont initramfs still carries the old FONT until rebuild.
-    initrd_ok = refresh_initramfs(quiet=bool(args.quiet))
-    if not live_ok:
-        return 1
+                note("live setfont missed — reboot after UKI refresh is enough")
+    # Must rebuild UKI without capture_output deadlock; verify consolefont gone.
+    initrd_ok = refresh_initramfs(
+        quiet=bool(args.quiet),
+        expect_no_consolefont=True,
+    )
     if not initrd_ok:
         return 1
     return 0
