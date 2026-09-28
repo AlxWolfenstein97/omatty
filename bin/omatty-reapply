@@ -14,6 +14,8 @@
 #
 # Opt-in: OMATTY_REAPPLY_ALL=1 or --all-vts for a manual chvt pass when SDDM
 # is stopped (nested VM tests, cold console-only sessions).
+# Clear/wipe: --force-all-vts skips the greeter/Wayland guard — brief flicker
+# is acceptable during uninstall; otherwise inactive gettys keep fat Terminus.
 #
 # Safe as root (udev) or via sudo. No-op when FONT= is unset and no stem given.
 # Optional stem: omatty-reapply [--quiet] default8x16  — used by `omatty clear`
@@ -25,12 +27,14 @@ fonts_dir="${OMATTY_CONSOLEFONTS:-/usr/share/kbd/consolefonts}"
 vt_max="${OMATTY_VT_MAX:-6}"
 quiet=0
 all_vts=0
+force_all_vts=0
 font=
 [[ ${OMATTY_REAPPLY_ALL:-0} == 1 ]] && all_vts=1
 for arg in "$@"; do
   case $arg in
     --quiet|-q) quiet=1 ;;
     --all-vts|--all) all_vts=1 ;;
+    --force-all-vts) all_vts=1; force_all_vts=1 ;;
     -*) ;; # ignore unknown flags
     *)
       # First non-flag arg is an explicit font stem (overrides vconsole FONT=).
@@ -102,13 +106,17 @@ push_console() {
   setfont "$target" -C "$console" >/dev/null 2>&1
 }
 
-# --- opt-in only: visit each getty (SDDM must not be running) ---------------
-if (( all_vts )); then
+# --- opt-in: visit each getty (default refuses while greeter/Wayland is up) ---
+if (( all_vts )) && (( ! force_all_vts )); then
   if [[ -d /run/sddm || -d /run/lightdm || -d /run/gdm ]] \
       || compgen -G "/run/user/*/wayland-*" >/dev/null 2>&1; then
     note "refusing --all-vts while a greeter/graphical session is up (would steal the login VT)"
     all_vts=0
   fi
+fi
+
+if (( all_vts )) && (( force_all_vts )); then
+  note "force-all-vts: chvt sweep despite graphical session (clear/wipe)"
 fi
 
 if (( all_vts )); then

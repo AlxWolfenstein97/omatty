@@ -995,6 +995,7 @@ def apply_setfont(
     font_stem: str,
     *,
     restart_vconsole_setup: bool = True,
+    force_all_vts: bool = False,
 ) -> bool:
     """Push the font to virtual consoles. Returns True on live setfont success.
 
@@ -1005,6 +1006,9 @@ def apply_setfont(
     clear turns it off — restarting *before* setfont can re-apply a fat FONT=
     still in conf if the write raced/failed, and leaves VTs stuck large when
     the following setfont is swallowed (old check=False path).
+
+    force_all_vts: clear/wipe only — chvt sweep even while Wayland is up so
+    inactive gettys drop fat Terminus (udev reapply must not steal the session).
     """
     if os.environ.get("OMATTY_SKIP_SETFONT") == "1":
         return True
@@ -1023,7 +1027,11 @@ def apply_setfont(
     # would no-op and leave the live VT stuck on fat Terminus.
     helper = plugin_dir() / "bin" / "omatty-reapply"
     if helper.is_file():
-        result = _priv([str(helper), "--quiet", font_stem], capture_output=True)
+        argv = [str(helper), "--quiet"]
+        if force_all_vts:
+            argv.append("--force-all-vts")
+        argv.append(font_stem)
+        result = _priv(argv, capture_output=True)
         return result.returncode == 0
     result = _priv(["setfont", target], capture_output=True)
     return result.returncode == 0
@@ -1298,12 +1306,18 @@ def cmd_clear(args: argparse.Namespace) -> int:
     # Live TTY keeps the last setfont face until we poke a stock face —
     # clearing vconsole.conf alone leaves fat Terminus on the current VT.
     # Do NOT restart systemd-vconsole-setup first (see apply_setfont).
+    # force_all_vts: inactive gettys keep fat faces while Hypr is up unless we
+    # chvt-sweep (udev reapply must not; clear/wipe may flicker briefly).
     live_ok = True
     if os.environ.get("OMATTY_SKIP_SETFONT") != "1":
-        live_ok = apply_setfont("default8x16", restart_vconsole_setup=False)
+        live_ok = apply_setfont(
+            "default8x16",
+            restart_vconsole_setup=False,
+            force_all_vts=True,
+        )
         if not args.quiet:
             if live_ok:
-                note("live console face → default8x16 (stock Omarchy)")
+                note("live console face → default8x16 on VTs (stock Omarchy; brief chvt ok on wipe)")
             else:
                 note("could not reset live setfont — reboot or: sudo setfont default8x16")
     # Encrypted / consolefont initramfs still carries the old FONT until rebuild.

@@ -127,12 +127,22 @@ udev_teardown() {
 if (( assume_yes )); then
   note "full wipe (--yes): resetting FONT= / DRM udev inline"
   udev_teardown
-  # One elevate covers conf strip + setfont + limine-mkinitcpio (no nested sudo
-  # prompts mid-clear that can silently leave fat Terminus on the VTs).
+  # One elevate covers conf strip + chvt setfont sweep + limine-mkinitcpio.
   if elevate "$here/bin/omatty" clear; then
     note "vconsole FONT= cleared + live face → default8x16 + boot image refresh"
   else
-    note "clear failed — try: sudo setfont default8x16 && sudo limine-mkinitcpio"
+    note "clear reported failure — forcing setfont default8x16 on tty1-6"
+    elevate /bin/sh -c '
+      for n in 1 2 3 4 5 6; do
+        setfont default8x16 -C /dev/tty"$n" 2>/dev/null \
+          || setfont default8x16 <>/dev/tty"$n" 2>/dev/null \
+          || true
+      done
+      if command -v limine-mkinitcpio >/dev/null 2>&1; then limine-mkinitcpio || true
+      elif command -v mkinitcpio >/dev/null 2>&1; then mkinitcpio -P || true
+      fi
+    ' || true
+    note "if TTYs still fat: reboot (conf/initramfs) or: sudo setfont default8x16"
   fi
   if ((${#pkgs_we_pulled[@]})); then
     note "full wipe (--yes): dropping only packages this install recorded pulling"
@@ -146,7 +156,18 @@ else
   if elevate "$here/bin/omatty" clear; then
     note "vconsole FONT= cleared + live face → default8x16 + boot image refresh"
   else
-    note "clear failed — try: sudo setfont default8x16 && sudo limine-mkinitcpio"
+    note "clear reported failure — forcing setfont default8x16 on tty1-6"
+    elevate /bin/sh -c '
+      for n in 1 2 3 4 5 6; do
+        setfont default8x16 -C /dev/tty"$n" 2>/dev/null \
+          || setfont default8x16 <>/dev/tty"$n" 2>/dev/null \
+          || true
+      done
+      if command -v limine-mkinitcpio >/dev/null 2>&1; then limine-mkinitcpio || true
+      elif command -v mkinitcpio >/dev/null 2>&1; then mkinitcpio -P || true
+      fi
+    ' || true
+    note "if TTYs still fat: reboot (conf/initramfs) or: sudo setfont default8x16"
   fi
   if ((${#pkgs_we_pulled[@]})); then
     ask_pkg_drop "${pkgs_we_pulled[@]}"
