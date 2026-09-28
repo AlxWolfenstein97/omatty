@@ -980,80 +980,92 @@ def patch_vconsole(existing: str, font_stem: str) -> str:
     return text
 
 
-def apply_setfont(font_stem: str) -> None:
-    """Push the font to active virtual consoles when possible (best-effort).
+def _priv(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    """Run argv as root — direct when already elevated, else sudo.
+
+    Wipe/uninstall prefer `elevate omatty clear` so one TTY sudo covers conf
+    write + setfont + initramfs. Nested `sudo` inside clear then no-ops as root.
+    """
+    if os.geteuid() == 0:
+        return subprocess.run(argv, check=False, text=True, **kwargs)
+    return subprocess.run(["sudo", *argv], check=False, text=True, **kwargs)
+
+
+def apply_setfont(
+    font_stem: str,
+    *,
+    restart_vconsole_setup: bool = True,
+) -> bool:
+    """Push the font to virtual consoles. Returns True on live setfont success.
 
     Skipped when OMATTY_VCONSOLE points at a fixture (tests) or
     OMATTY_SKIP_SETFONT is set — so check.sh never trips an interactive sudo.
+
+    restart_vconsole_setup: Style → set keeps this on (unit re-reads FONT=).
+    clear turns it off — restarting *before* setfont can re-apply a fat FONT=
+    still in conf if the write raced/failed, and leaves VTs stuck large when
+    the following setfont is swallowed (old check=False path).
     """
     if os.environ.get("OMATTY_SKIP_SETFONT") == "1":
-        return
+        return True
     if vconsole_path() != Path("/etc/vconsole.conf"):
-        return
+        return True
     font_path = resolve_font_file(font_stem)
     target = str(font_path) if font_path else font_stem
-    # systemd unit re-reads vconsole.conf — often no-ops when every VT is
-    # "busy" (common right after GPU rebind). setfont still works then.
-    subprocess.run(
-        ["sudo", "systemctl", "restart", "systemd-vconsole-setup.service"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    if restart_vconsole_setup:
+        # Often no-ops when every VT is "busy"; setfont still works then.
+        _priv(
+            ["systemctl", "restart", "systemd-vconsole-setup.service"],
+            capture_output=True,
+        )
     # Prefer the retrying helper (same path udev uses after DRM card add).
     # Always pass font_stem — after `clear` strips FONT=, a stem-less reapply
     # would no-op and leave the live VT stuck on fat Terminus.
     helper = plugin_dir() / "bin" / "omatty-reapply"
     if helper.is_file():
-        subprocess.run(
-            ["sudo", str(helper), "--quiet", font_stem],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        return
-    subprocess.run(
-        ["sudo", "setfont", target],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+        result = _priv([str(helper), "--quiet", font_stem], capture_output=True)
+        return result.returncode == 0
+    result = _priv(["setfont", target], capture_output=True)
+    return result.returncode == 0
 
 
-def refresh_initramfs(*, quiet: bool = False) -> None:
+def refresh_initramfs(*, quiet: bool = False) -> bool:
     """Rebuild the boot image so early userspace / LUKS matches vconsole FONT=.
 
     Omarchy’s mkinitcpio hooks (`consolefont`, and often `FILES+=(/etc/vconsole.conf)`
     for Plymouth) bake the current FONT into the initramfs/UKI. Clearing
     /etc/vconsole.conf alone leaves fat Terminus on the next encrypted boot
     until limine-mkinitcpio runs. Same for set — unlock prompt would lag.
+
+    Returns True when refreshed or safely skipped (fixtures / env); False when
+    a builder was needed and every attempt failed.
     """
     if os.environ.get("OMATTY_SKIP_SETFONT") == "1":
-        return
+        return True
     if os.environ.get("OMATTY_SKIP_INITRAMFS") == "1":
-        return
+        return True
     if vconsole_path() != Path("/etc/vconsole.conf"):
-        return
+        return True
 
     builders: list[list[str]] = []
     if shutil.which("limine-mkinitcpio"):
-        builders.append(["sudo", "limine-mkinitcpio"])
+        builders.append(["limine-mkinitcpio"])
     if shutil.which("mkinitcpio"):
-        builders.append(["sudo", "mkinitcpio", "-P"])
+        builders.append(["mkinitcpio", "-P"])
     if not builders:
         if not quiet:
             note("no limine-mkinitcpio/mkinitcpio — rebuild initramfs by hand after FONT= changes")
-        return
+        return True
 
     if not quiet:
         note("rebuilding boot image so LUKS / early TTY match FONT= (may take a bit)…")
 
     for cmd in builders:
-        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        result = _priv(cmd, capture_output=True)
         if result.returncode == 0:
             if not quiet:
                 note(f"boot image refreshed ({cmd[-1] if cmd[-1] != '-P' else 'mkinitcpio -P'})")
-            return
+            return True
         err = (result.stderr or result.stdout or "").strip().splitlines()
         tail = err[-1] if err else f"exit {result.returncode}"
         if not quiet:
@@ -1062,6 +1074,7 @@ def refresh_initramfs(*, quiet: bool = False) -> None:
     if not quiet:
         note("boot image not refreshed — next encrypted boot may keep the old console font")
         note("  later: sudo limine-mkinitcpio")
+    return False
 
 
 
@@ -1091,8 +1104,7 @@ def cmd_reapply(args: argparse.Namespace) -> int:
             note("no FONT= in vconsole.conf")
         return 0
     stem = match.group(1).strip().strip("\"'")
-    apply_setfont(stem)
-    return 0
+    return 0 if apply_setfont(stem) else 1
 
 
 def set_font(font_id: str, *, quiet: bool = False, dry_run: bool = False) -> int:
@@ -1276,20 +1288,30 @@ def clear_vconsole_font(*, quiet: bool = False) -> None:
 
 
 def cmd_clear(args: argparse.Namespace) -> int:
-    clear_vconsole_font(quiet=bool(args.quiet))
+    try:
+        clear_vconsole_font(quiet=bool(args.quiet))
+    except Exception as error:  # noqa: BLE001
+        if not args.quiet:
+            note(f"could not clear vconsole FONT= ({error})")
+        return 1
     uninstall_starship_tty()
     # Live TTY keeps the last setfont face until we poke a stock face —
     # clearing vconsole.conf alone leaves fat Terminus on the current VT.
+    # Do NOT restart systemd-vconsole-setup first (see apply_setfont).
+    live_ok = True
     if os.environ.get("OMATTY_SKIP_SETFONT") != "1":
-        try:
-            apply_setfont("default8x16")
-            if not args.quiet:
+        live_ok = apply_setfont("default8x16", restart_vconsole_setup=False)
+        if not args.quiet:
+            if live_ok:
                 note("live console face → default8x16 (stock Omarchy)")
-        except Exception as error:  # noqa: BLE001
-            if not args.quiet:
-                note(f"could not reset live setfont ({error}) — reboot or: sudo setfont default8x16")
+            else:
+                note("could not reset live setfont — reboot or: sudo setfont default8x16")
     # Encrypted / consolefont initramfs still carries the old FONT until rebuild.
-    refresh_initramfs(quiet=bool(args.quiet))
+    initrd_ok = refresh_initramfs(quiet=bool(args.quiet))
+    if not live_ok:
+        return 1
+    if not initrd_ok:
+        return 1
     return 0
 
 

@@ -279,7 +279,7 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 | Action | What happens |
 |--------|----------------|
 | `omarchy plugin disable …` | Shell service stops. No theme-set hook — last `FONT=` / DRM reapply udev stay. |
-| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, cache/state gone; OmaTTY-owned starship files removed (config dir kept if you left other files). This TTY drops DRM udev first, then `omatty clear` (strips `FONT=`, live `setfont default8x16`, then `limine-mkinitcpio` so encrypted/LUKS early boot is not stuck on fat Terminus baked into the initramfs). Optional y/N `pkg drop` of packages this install recorded pulling. |
+| `./uninstall.sh` then disable / remove | Menu, bashrc snippet, cache/state gone; OmaTTY-owned starship files removed (config dir kept if you left other files). This TTY drops DRM udev first, then **elevates** `omatty clear` once (strips our marked `FONT=` block, live `setfont default8x16` on VTs, then `limine-mkinitcpio` so encrypted/LUKS early boot is not stuck on fat Terminus). Clear exits non-zero if live reset or initramfs refresh fails — do not ignore that line. Optional y/N `pkg drop` of packages this install recorded pulling. |
 | `omarchy pkg drop python-pillow` | Optional — only if this install recorded pulling it; may fail/stay if something else still requires it. TTY y/N on uninstall. |
 | `omarchy pkg drop terminus-font` | Optional — only if this install recorded pulling it; may fail/stay if something else still requires it. |
 

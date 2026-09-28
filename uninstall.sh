@@ -127,7 +127,9 @@ udev_teardown() {
 if (( assume_yes )); then
   note "full wipe (--yes): resetting FONT= / DRM udev inline"
   udev_teardown
-  if "$here/bin/omatty" clear; then
+  # One elevate covers conf strip + setfont + limine-mkinitcpio (no nested sudo
+  # prompts mid-clear that can silently leave fat Terminus on the VTs).
+  if elevate "$here/bin/omatty" clear; then
     note "vconsole FONT= cleared + live face → default8x16 + boot image refresh"
   else
     note "clear failed — try: sudo setfont default8x16 && sudo limine-mkinitcpio"
@@ -141,7 +143,7 @@ if (( assume_yes )); then
 else
   note "resetting FONT= / DRM udev (may prompt for sudo)"
   udev_teardown
-  if "$here/bin/omatty" clear; then
+  if elevate "$here/bin/omatty" clear; then
     note "vconsole FONT= cleared + live face → default8x16 + boot image refresh"
   else
     note "clear failed — try: sudo setfont default8x16 && sudo limine-mkinitcpio"
