@@ -26,6 +26,7 @@ import sys
 import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -555,6 +556,7 @@ def _hex_rgb(value: str) -> tuple[int, int, int]:
     return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
 
 
+@lru_cache(maxsize=None)
 def try_ui_font(size: int) -> ImageFont.ImageFont:
     candidates = [
         "/usr/share/fonts/TTF/DejaVuSansMono.ttf",
@@ -641,7 +643,7 @@ def save_png_atomic(img: Image.Image, dest: Path) -> None:
     fd, tmp = tempfile.mkstemp(prefix=f".{dest.name}.", suffix=".png", dir=dest.parent)
     try:
         os.close(fd)
-        img.save(tmp, format="PNG", optimize=True)
+        img.save(tmp, format="PNG", compress_level=3)
         os.replace(tmp, dest)
     finally:
         try:
@@ -832,6 +834,11 @@ def _preview_pool(workers: int) -> ProcessPoolExecutor:
     return ProcessPoolExecutor(max_workers=workers, mp_context=ctx)
 
 
+def _preload_render() -> None:
+    """Import Pillow before forking so every worker inherits it."""
+    Image._load()
+
+
 def _warm_one_preview(font_id: str) -> Path:
     return generate_preview(font_id, force=True)
 
@@ -873,6 +880,7 @@ def generate_all_previews() -> list[Path]:
         dirty.append(font_id)
     if not dirty:
         return out
+    _preload_render()
     workers = max(1, min(len(dirty), os.cpu_count() or 2))
     with _preview_pool(workers) as pool:
         futures = {pool.submit(_warm_one_preview, font_id): font_id for font_id in dirty}
@@ -1689,6 +1697,10 @@ def cmd_switcher(_: argparse.Namespace) -> int:
 
     cmd = [
         "omarchy-menu-images",
+        # Our tiles are already 1536×864. Let the picker draw them immediately
+        # and warm omarchy-menu-images' JPEG cache in the background instead of
+        # blocking the open on a thumbnail pass.
+        "--lazy-thumbnails",
         "--print-name",
         "--show-labels",
         "--filterable",
