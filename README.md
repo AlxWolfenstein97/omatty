@@ -29,7 +29,7 @@ makes them all large from the start.
 
 Opt-in only with the greeter **stopped** (nested VM / console-only tests):
 `omatty reapply --all-vts` or `OMATTY_REAPPLY_ALL=1` (refused if SDDM /
-a graphical session is up). Appearance → Extenders → Font / plain `omatty reapply` stay
+a graphical session is up). Appearance → Extenders → VTFont / plain `omatty reapply` stay
 SDDM-safe. Brief tiny flash mid-modeset is still possible.
 
 **Pairing:** [OmaVT](https://github.com/AlxWolfenstein97/omavt) can retint the
@@ -76,7 +76,7 @@ faster than applying each one and hopping to Ctrl+Alt+F3. Pair with
 
 ## What you get
 
-- **Appearance → Extenders → Font** — labelled image picker (`omarchy-menu-images`).
+- **Appearance → Extenders → VTFont** — labelled image picker (`omarchy-menu-images`).
 - **Real PSF mockups** — top-left getty session painted with the font's own
   glyphs (not a lookalike TTF), so sizes read true before you apply.
 - **Cropped like a TTY, not Hyprland** — fixed “glass”; bigger faces fit fewer
@@ -253,7 +253,7 @@ omatty install-drm
 ```sh
 omarchy plugin add https://github.com/AlxWolfenstein97/omatty.git --enable
 # install.sh TTY: pillow + terminus (scanned); optional DRM y/N (default N)
-# Appearance → Extenders → Font appears without a shell restart
+# Appearance → Extenders → VTFont appears without a shell restart
 # Pick ter-v32b → sudo terminal runs limine-mkinitcpio; Ctrl+Alt+F3 fat; reboot → LUKS/early TTY fat too
 omatty current
 omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
@@ -280,7 +280,7 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 Quiet Service install (`--quiet`): restores already-armed wiring only
 (DRM udev only if already passwordless). Deps + menu consent + DRM reapply come
 from interactive `install.sh`, `--yes --with-drm-reapply`, or family
-`arm-all-family.sh`. Menu + `rescanPlugins` so Appearance → Extenders → Font shows without a
+`arm-all-family.sh`. Menu + `rescanPlugins` so Appearance → Extenders → VTFont shows without a
 manual shell restart.
 
 **Full wipe** — one shot (`--yes` skips pkg Y/n, ledger-only drops of packages this install recorded pulling (may fail and stay if something else still needs them — e.g. Goverlay after Pillow), and removes the plugin):

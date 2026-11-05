@@ -78,7 +78,7 @@ menu_file="${menu_file:-$HOME/.config/omarchy/extensions/omarchy-menu.jsonc}"
 [[ -f $state/armed-style-menu ]] && arm_style_menu=1
 if (( ! quiet && ! assume_yes )); then
   if (( ! arm_style_menu )); then
-    printf '%s' "omatty: install Appearance → Extenders → Font menu entry? [Y/n] "
+    printf '%s' "omatty: install Appearance → Extenders → VTFont menu entry? [Y/n] "
     read -r _ans || _ans=
     case ${_ans:-Y} in [nN]|[nN][oO]) arm_style_menu=0 ;; *) arm_style_menu=1 ;; esac
   fi
@@ -122,13 +122,13 @@ EOF
   print_drm_header() {
     printf '%s\n' 'OmaTTY — DRM font reapply (optional)'
     printf '%s\n' 'io.github.alxwolfenstein97.omatty'
-    printf '%s\n' 'Appearance → Extenders → Font — re-push FONT= after GPU passthrough / VFIO'
+    printf '%s\n' 'Appearance → Extenders → VTFont — re-push FONT= after GPU passthrough / VFIO'
     printf '%s\n' '────────────────────────────────'
     printf '%s\n' 'Needs to install (sudo) — only useful if you hop GPUs to a VM:'
     printf '%s\n' '  • /usr/local/lib/omatty/reapply — setfont helper for DRM card-add'
     printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules — fires helper on GPU return'
     printf '%s\n' '────────────────────────────────'
-    printf '%s\n' 'Skip if you never do single-GPU passthrough. Appearance → Extenders → Font still works.'
+    printf '%s\n' 'Skip if you never do single-GPU passthrough. Appearance → Extenders → VTFont still works.'
     printf '%s\n' ''
   }
 
@@ -179,7 +179,7 @@ EOF
     note "DRM card-add → setfont reapply armed (/etc/udev/rules.d/99-omatty-reapply.rules)"
     return 0
   fi
-  warn "OmaTTY could not install DRM reapply udev (sudo denied) — Appearance → Extenders → Font still works live"
+  warn "OmaTTY could not install DRM reapply udev (sudo denied) — Appearance → Extenders → VTFont still works live"
   return 1
 }
 
@@ -249,11 +249,11 @@ pull_pkgs() {
   fi
 
   if ((${#missing[@]})) && ! command -v omarchy >/dev/null 2>&1; then
-    warn "OmaTTY needs ${missing[*]} for: Appearance → Extenders → Font — console font mockups + FONT= — install manually: pacman -S ${missing[*]}"
+    warn "OmaTTY needs ${missing[*]} for: Appearance → Extenders → VTFont — console font mockups + FONT= — install manually: pacman -S ${missing[*]}"
     return 1
   fi
 
-  ((${#missing[@]})) && note "OmaTTY needs ${missing[*]} — Appearance → Extenders → Font — console font mockups + FONT="
+  ((${#missing[@]})) && note "OmaTTY needs ${missing[*]} — Appearance → Extenders → VTFont — console font mockups + FONT="
 
   # Build optional DRM sudo body once (scanned — only if paths missing).
   local drm_script=""
@@ -272,7 +272,7 @@ EOF
   if ((${#missing[@]})); then
     printf '%s\n' "OmaTTY"
     printf '%s\n' "io.github.alxwolfenstein97.omatty"
-    printf '%s\n' "Appearance → Extenders → Font — console font mockups + FONT="
+    printf '%s\n' "Appearance → Extenders → VTFont — console font mockups + FONT="
     printf '%s\n' "────────────────────────────────"
     printf '%s\n' "Needs to install (sudo / pacman) — only packages missing on this system:"
     for pkg in "${missing[@]}"; do
@@ -300,7 +300,7 @@ EOF
     printf '%s\n' "Optional — DRM font reapply (single-GPU / VFIO only):"
     printf '%s\n' "  • /usr/local/lib/omatty/reapply"
     printf '%s\n' "  • /etc/udev/rules.d/99-omatty-reapply.rules"
-    printf '%s\n' "Skip if you never hop a GPU to a VM. Appearance → Extenders → Font still works."
+    printf '%s\n' "Skip if you never hop a GPU to a VM. Appearance → Extenders → VTFont still works."
     local ans=
     if (( assume_yes )); then ans=N; else read -r -p "Install optional DRM reapply udev now? [y/N] " ans || true; fi
     case $ans in
@@ -380,7 +380,7 @@ ORPHANSCRUB
   # block, so marker presence alone is not enough: rewrite once after an
   # upgrade until the new Appearance → Extenders key is there.
   if (( quiet )) && [[ -f $menu_file ]] && grep -qF '// omatty:start' "$menu_file" \
-     && grep -qF '"appearance.extenders.font"' "$menu_file"; then
+     && grep -qF '"appearance.extenders.vtfont"' "$menu_file"; then
     write_menu=0
   fi
   if (( write_menu )); then
@@ -431,7 +431,7 @@ else
   note "Appearance menu skipped — run: $here/tools/install-style-menu.sh"
 fi
 if (( ! quiet )); then
-  note "Appearance → Extenders → Font is live; if the row is missing, run: omarchy-shell shell rescanPlugins"
+  note "Appearance → Extenders → VTFont is live; if the row is missing, run: omarchy-shell shell rescanPlugins"
 fi
 
 if (( ! quiet )); then
@@ -444,6 +444,6 @@ if command -v omarchy >/dev/null 2>&1; then
   omarchy plugin enable "$plugin_id" >/dev/null 2>&1 || true
 fi
 
-note "done — Appearance > Extenders > Font, or '$here/bin/omatty switcher'"
+note "done — Appearance > Extenders > VTFont, or '$here/bin/omatty switcher'"
 note "Appearance picker uses Omarchy's floating terminal for sudo on apply (like Unlock)"
 exit 0

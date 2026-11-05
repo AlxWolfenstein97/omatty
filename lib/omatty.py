@@ -1352,7 +1352,7 @@ def uninstall_starship_tty() -> None:
 
 
 def managed_font_stems() -> set[str]:
-    """Console font stems Appearance → Extenders → Font can write (ownership for clear)."""
+    """Console font stems Appearance → Extenders → VTFont can write (ownership for clear)."""
     return {item["file"] for item in CURATED}
 
 
@@ -1594,11 +1594,11 @@ def install_menu_entry() -> None:
     content = remove_marked(content, MENU_START, MENU_END)
     entries = [
         (
-            "appearance.extenders.font",
+            "appearance.extenders.vtfont",
             {
                 "icon": "󰯃",
-                "label": "Font",
-                "aliases": ["tty", "console", "vconsole", "terminus"],
+                "label": "VTFont",
+                "aliases": ["vtfont", "font", "tty", "console", "vconsole", "terminus", "psf"],
                 "description": "Preview console fonts (Terminus + stock) and set FONT= in vconsole.conf (sudo)",
                 "action": menu_action(),
             },
@@ -1777,10 +1777,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("switcher", help="Open image picker; print chosen font id").set_defaults(
         func=cmd_switcher
     )
-    sub.add_parser("install-menu", help="Add Appearance → Extenders → Font + starship TTY profile").set_defaults(
+    sub.add_parser("install-menu", help="Add Appearance → Extenders → VTFont + starship TTY profile").set_defaults(
         func=cmd_install_menu
     )
-    sub.add_parser("uninstall-menu", help="Remove Appearance → Extenders → Font + bashrc snippet").set_defaults(
+    sub.add_parser("uninstall-menu", help="Remove Appearance → Extenders → VTFont + bashrc snippet").set_defaults(
         func=cmd_uninstall_menu
     )
     sub.add_parser("install-starship", help="(Re)write TTY starship profile + bashrc snippet").set_defaults(
