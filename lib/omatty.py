@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OmaTTY — Style-menu console (TTY) fonts with real bitmap mockups.
+"""OmaTTY — Appearance-menu console (TTY) fonts with real bitmap mockups.
 
 Curates the fonts people actually pick on Arch (stock default + Terminus
 sizes, matching what recent archinstall Console-font menus surface via
@@ -726,7 +726,7 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
 
     Session script matches OmaVT (QEMU default-TTY capture): getty on tty1,
     login wolf, single-GPU passthrough starter — only that session, no extra
-    alphabet rows. Content stays inside SAFE_X for the Style carousel crop.
+    alphabet rows. Content stays inside SAFE_X for the Appearance carousel crop.
     """
     item = CURATED_BY_ID.get(font_id)
     if item is None:
@@ -744,7 +744,7 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
     cyan = _hex_rgb(colors["cyan"])
 
     # Match omarchy-menu-images thumbnail size (1536×864). Side crop on the
-    # 768×475 Style tile shaves ~8%; keep the VT pane inside that margin.
+    # 768×475 Appearance tile shaves ~8%; keep the VT pane inside that margin.
     w, h = 1536, 864
     safe_x, safe_y = 120, 56
     footer_h = 40
@@ -765,7 +765,7 @@ def render_mockup(font_id: str, dest: Path | None = None) -> Path:
     draw = ImageDraw.Draw(img)
     ui_sm = try_ui_font(18)
 
-    # Keep session lines in sync with OmaVT (sibling Style plugin).
+    # Keep session lines in sync with OmaVT (sibling extender).
     banner = tty_banner("tty1")
     prompt = "~ > "
     command = "sudo /home/wolf/vm-space/windows-11/single-gpu-start.sh"
@@ -1352,7 +1352,7 @@ def uninstall_starship_tty() -> None:
 
 
 def managed_font_stems() -> set[str]:
-    """Console font stems Style → TTY Fonts can write (ownership for clear)."""
+    """Console font stems Appearance → Extenders → Font can write (ownership for clear)."""
     return {item["file"] for item in CURATED}
 
 
@@ -1500,7 +1500,7 @@ def cmd_install_drm(_: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Style menu
+# Appearance menu
 # ---------------------------------------------------------------------------
 
 
@@ -1525,10 +1525,10 @@ STYLE_EXTENDER_BLOCKS = (
 
 
 def normalize_style_extender_menu_order(menu_path: Path) -> None:
-    """Keep Style extender rows in a stable file order.
+    """Keep Extender rows in a stable file order.
 
     Each plugin's install-menu inserts at the top of the extensions object, so
-    whichever service warms last wins the first slot and the Style submenu
+    whichever service warms last wins the first slot and the Extenders submenu
     shuffles. Extract known blocks and rewrite them in a fixed sequence.
     """
     if not menu_path.is_file():
@@ -1563,16 +1563,41 @@ def normalize_style_extender_menu_order(menu_path: Path) -> None:
     if new != old:
         atomic_write(menu_path, new)
 
+EXTENDER_PARENT = '  "appearance.extenders": {"icon": "\U000f03d8", "label": "Extenders"},'
+
+
+def ensure_extender_parent(content: str) -> str:
+    """Define the shared Appearance → Extenders row once, before its children."""
+    if re.search(r'^[ \t]*"appearance\.extenders"[ \t]*:', content, re.M):
+        return content
+    brace = content.find("{")
+    if brace < 0:
+        raise RuntimeError("menu config has no root object")
+    return content[: brace + 1] + "\n" + EXTENDER_PARENT + content[brace + 1 :]
+
+
+def prune_extender_parent(content: str) -> str:
+    """Drop the shared parent once the last extender child is gone."""
+    if re.search(r'"appearance\.extenders\.[^"]+"', content):
+        return content
+    return re.sub(
+        r'^[ \t]*"appearance\.extenders"[ \t]*:[ \t]*\{[^\n]*\},[ \t]*\n?',
+        "",
+        content,
+        flags=re.M,
+    )
+
+
 def install_menu_entry() -> None:
     path = paths()["menu"]
     content = path.read_text(encoding="utf-8") if path.is_file() else "{\n}\n"
     content = remove_marked(content, MENU_START, MENU_END)
     entries = [
         (
-            "style.tty-font",
+            "appearance.extenders.font",
             {
                 "icon": "󰯃",
-                "label": "TTY Fonts",
+                "label": "Font",
                 "aliases": ["tty", "console", "vconsole", "terminus"],
                 "description": "Preview console fonts (Terminus + stock) and set FONT= in vconsole.conf (sudo)",
                 "action": menu_action(),
@@ -1587,7 +1612,8 @@ def install_menu_entry() -> None:
         body.append(f"  {json.dumps(key)}: {json.dumps(value, ensure_ascii=False)},")
     body.append(MENU_END)
     insertion = "\n".join(body) + "\n"
-    atomic_write(path, content[: brace + 1] + "\n" + insertion + content[brace + 1 :])
+    updated = content[: brace + 1] + "\n" + insertion + content[brace + 1 :]
+    atomic_write(path, ensure_extender_parent(updated))
 
 
     normalize_style_extender_menu_order(path)
@@ -1599,7 +1625,8 @@ def uninstall_menu_entry() -> None:
         return
     content = path.read_text(encoding="utf-8")
     if MENU_START in content:
-        atomic_write(path, remove_marked(content, MENU_START, MENU_END))
+        content = remove_marked(content, MENU_START, MENU_END)
+        atomic_write(path, prune_extender_parent(content))
 
 
 # ---------------------------------------------------------------------------
@@ -1750,10 +1777,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("switcher", help="Open image picker; print chosen font id").set_defaults(
         func=cmd_switcher
     )
-    sub.add_parser("install-menu", help="Add Style → TTY Fonts + starship TTY profile").set_defaults(
+    sub.add_parser("install-menu", help="Add Appearance → Extenders → Font + starship TTY profile").set_defaults(
         func=cmd_install_menu
     )
-    sub.add_parser("uninstall-menu", help="Remove Style → TTY Fonts + bashrc snippet").set_defaults(
+    sub.add_parser("uninstall-menu", help="Remove Appearance → Extenders → Font + bashrc snippet").set_defaults(
         func=cmd_uninstall_menu
     )
     sub.add_parser("install-starship", help="(Re)write TTY starship profile + bashrc snippet").set_defaults(

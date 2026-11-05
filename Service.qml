@@ -4,7 +4,7 @@ import Quickshell.Io
 // OmaTTY service plugin.
 //
 // Console-font switching lives in bin/omatty. This component only re-runs the
-// installer at shell start so Style → TTY Fonts (and the bashrc starship
+// installer at shell start so Appearance → Extenders → Font (and the bashrc starship
 // snippet) come back after a refresh. Applying needs sudo — no theme-set hook.
 Item {
     id: root

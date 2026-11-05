@@ -39,7 +39,7 @@ pkgs_stamp="$runtime_dir/pkgs-prompted"
 
 # Tombstone from uninstall. Disable-first in uninstall.sh means a later quiet
 # Service run is a re-enable / re-add — clear tombstone + prompt stamps so the
-# Style menu and package prompts can run again after wipe.
+# Appearance menu and package prompts can run again after wipe.
 if [[ -f $state/uninstalled ]]; then
   # Per-plugin prompt stamps + shared Pillow claim. Claim survives an ignored
   # claim and would block pillow-only plugins (OmaBoot/OmaVT/OmaOBS) on
@@ -65,7 +65,7 @@ fi
 
 mkdir -p "$state"
 
-# --- marketplace consent: Style menu / theme-set hook are opt-in -----------
+# --- marketplace consent: Appearance menu / theme-set hook are opt-in -----------
 # Quiet Service must not write user config unless previously armed.
 # Interactive asks; --with-style-menu / --with-theme-hook / --arm-all force.
 # Existing hook/menu from older installs grandfather into armed-*.
@@ -78,7 +78,7 @@ menu_file="${menu_file:-$HOME/.config/omarchy/extensions/omarchy-menu.jsonc}"
 [[ -f $state/armed-style-menu ]] && arm_style_menu=1
 if (( ! quiet && ! assume_yes )); then
   if (( ! arm_style_menu )); then
-    printf '%s' "omatty: install Style → TTY Fonts menu entry? [Y/n] "
+    printf '%s' "omatty: install Appearance → Extenders → Font menu entry? [Y/n] "
     read -r _ans || _ans=
     case ${_ans:-Y} in [nN]|[nN][oO]) arm_style_menu=0 ;; *) arm_style_menu=1 ;; esac
   fi
@@ -122,13 +122,13 @@ EOF
   print_drm_header() {
     printf '%s\n' 'OmaTTY — DRM font reapply (optional)'
     printf '%s\n' 'io.github.alxwolfenstein97.omatty'
-    printf '%s\n' 'Style → TTY Fonts — re-push FONT= after GPU passthrough / VFIO'
+    printf '%s\n' 'Appearance → Extenders → Font — re-push FONT= after GPU passthrough / VFIO'
     printf '%s\n' '────────────────────────────────'
     printf '%s\n' 'Needs to install (sudo) — only useful if you hop GPUs to a VM:'
     printf '%s\n' '  • /usr/local/lib/omatty/reapply — setfont helper for DRM card-add'
     printf '%s\n' '  • /etc/udev/rules.d/99-omatty-reapply.rules — fires helper on GPU return'
     printf '%s\n' '────────────────────────────────'
-    printf '%s\n' 'Skip if you never do single-GPU passthrough. Style → TTY Fonts still works.'
+    printf '%s\n' 'Skip if you never do single-GPU passthrough. Appearance → Extenders → Font still works.'
     printf '%s\n' ''
   }
 
@@ -179,7 +179,7 @@ EOF
     note "DRM card-add → setfont reapply armed (/etc/udev/rules.d/99-omatty-reapply.rules)"
     return 0
   fi
-  warn "OmaTTY could not install DRM reapply udev (sudo denied) — Style → TTY Fonts still works live"
+  warn "OmaTTY could not install DRM reapply udev (sudo denied) — Appearance → Extenders → Font still works live"
   return 1
 }
 
@@ -249,11 +249,11 @@ pull_pkgs() {
   fi
 
   if ((${#missing[@]})) && ! command -v omarchy >/dev/null 2>&1; then
-    warn "OmaTTY needs ${missing[*]} for: Style → TTY Fonts — console font mockups + FONT= — install manually: pacman -S ${missing[*]}"
+    warn "OmaTTY needs ${missing[*]} for: Appearance → Extenders → Font — console font mockups + FONT= — install manually: pacman -S ${missing[*]}"
     return 1
   fi
 
-  ((${#missing[@]})) && note "OmaTTY needs ${missing[*]} — Style → TTY Fonts — console font mockups + FONT="
+  ((${#missing[@]})) && note "OmaTTY needs ${missing[*]} — Appearance → Extenders → Font — console font mockups + FONT="
 
   # Build optional DRM sudo body once (scanned — only if paths missing).
   local drm_script=""
@@ -272,13 +272,13 @@ EOF
   if ((${#missing[@]})); then
     printf '%s\n' "OmaTTY"
     printf '%s\n' "io.github.alxwolfenstein97.omatty"
-    printf '%s\n' "Style → TTY Fonts — console font mockups + FONT="
+    printf '%s\n' "Appearance → Extenders → Font — console font mockups + FONT="
     printf '%s\n' "────────────────────────────────"
     printf '%s\n' "Needs to install (sudo / pacman) — only packages missing on this system:"
     for pkg in "${missing[@]}"; do
       case $pkg in
-        python-pillow) printf '  • %s — %s\n' "$pkg" 'draw TTY Fonts PSF carousel mockups' ;;
-        terminus-font) printf '  • %s — %s\n' "$pkg" 'Terminus faces shown in TTY Fonts' ;;
+        python-pillow) printf '  • %s — %s\n' "$pkg" 'draw Font PSF carousel mockups' ;;
+        terminus-font) printf '  • %s — %s\n' "$pkg" 'Terminus faces shown in Font' ;;
         *) printf '  • %s\n' "$pkg" ;;
       esac
     done
@@ -300,7 +300,7 @@ EOF
     printf '%s\n' "Optional — DRM font reapply (single-GPU / VFIO only):"
     printf '%s\n' "  • /usr/local/lib/omatty/reapply"
     printf '%s\n' "  • /etc/udev/rules.d/99-omatty-reapply.rules"
-    printf '%s\n' "Skip if you never hop a GPU to a VM. Style → TTY Fonts still works."
+    printf '%s\n' "Skip if you never hop a GPU to a VM. Appearance → Extenders → Font still works."
     local ans=
     if (( assume_yes )); then ans=N; else read -r -p "Install optional DRM reapply udev now? [y/N] " ans || true; fi
     case $ans in
@@ -332,7 +332,7 @@ if (( ! no_pkgs )); then
 fi
 
 if (( arm_style_menu )); then
-# Style extenders share omarchy-menu.jsonc — flock so parallel Services don't
+# Extenders share omarchy-menu.jsonc — flock so parallel Services don't
 # clobber each other. Interactive: always install-menu. Quiet: only if our
 # markers are absent (no rewrite/normalize every boot). Refresh only when written.
 menu_lock="$HOME/.local/state/omarchy/style-extenders/menu.lock"
@@ -341,7 +341,7 @@ menu_file="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
 mkdir -p "$(dirname "$menu_lock")"
 (
   flock 9
-  # Scrub Style rows for siblings removed via plugin remove (no uninstall.sh).
+  # Scrub Extender rows for siblings removed via plugin remove (no uninstall.sh).
   scrubbed=0
   scrub_out=$(python3 - <<'ORPHANSCRUB' || true
 from pathlib import Path
@@ -367,6 +367,8 @@ for marker, pid in pairs:
     if start not in text:
         continue
     text = re.sub(re.escape(start) + r".*?" + re.escape(end) + r"\n?", "", text, flags=re.S)
+if not re.search(r'"appearance\.extenders\.[^"]+"', text):
+    text = re.sub(r'^[ \t]*"appearance\.extenders"[ \t]*:[ \t]*\{[^\n]*\},[ \t]*\n?', '', text, flags=re.M)
 if text != orig:
     menu.write_text(text, encoding="utf-8")
     print("scrubbed-orphan-style-menus")
@@ -397,8 +399,8 @@ ORPHANSCRUB
           if (( do_refresh )); then
             touch "$stamp"
             omarchy-shell -q omarchy.menu refresh >/dev/null 2>&1 || true
-            # Quiet Service installs need rescan too — otherwise Style rows
-            # (esp. OBS Themes) stay invisible until a manual shell restart.
+            # Quiet Service installs need rescan too — otherwise Extender rows
+            # (esp. OBS) stay invisible until a manual shell restart.
             omarchy-shell -q shell rescanPlugins >/dev/null 2>&1 || true
           fi
         fi
@@ -422,10 +424,10 @@ ORPHANSCRUB
   fi
 ) 9>"$menu_lock"
 else
-  note "Style menu skipped — run: $here/tools/install-style-menu.sh"
+  note "Appearance menu skipped — run: $here/tools/install-style-menu.sh"
 fi
 if (( ! quiet )); then
-  note "Style → TTY Fonts is live; if the row is missing, run: omarchy-shell shell rescanPlugins"
+  note "Appearance → Extenders → Font is live; if the row is missing, run: omarchy-shell shell rescanPlugins"
 fi
 
 if (( ! quiet )); then
@@ -438,6 +440,6 @@ if command -v omarchy >/dev/null 2>&1; then
   omarchy plugin enable "$plugin_id" >/dev/null 2>&1 || true
 fi
 
-note "done — Style > TTY Fonts, or '$here/bin/omatty switcher'"
-note "Style picker uses Omarchy's floating terminal for sudo on apply (like Unlock)"
+note "done — Appearance > Extenders > Font, or '$here/bin/omatty switcher'"
+note "Appearance picker uses Omarchy's floating terminal for sudo on apply (like Unlock)"
 exit 0

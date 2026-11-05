@@ -1,7 +1,7 @@
 # OmaTTY
 
 **Omarchy themes your desktop. OmaTTY picks the console font behind
-Ctrl+Alt+F3 — real PSF mockups in the Style menu, then `FONT=` in
+Ctrl+Alt+F3 — real PSF mockups in the Appearance menu, then `FONT=` in
 `/etc/vconsole.conf`.**
 
 ![OmaTTY — Terminus 32 Bold mockup, hilariously cropped like a real TTY](preview.png)
@@ -29,7 +29,7 @@ makes them all large from the start.
 
 Opt-in only with the greeter **stopped** (nested VM / console-only tests):
 `omatty reapply --all-vts` or `OMATTY_REAPPLY_ALL=1` (refused if SDDM /
-a graphical session is up). Style → TTY Fonts / plain `omatty reapply` stay
+a graphical session is up). Appearance → Extenders → Font / plain `omatty reapply` stay
 SDDM-safe. Brief tiny flash mid-modeset is still possible.
 
 **Pairing:** [OmaVT](https://github.com/AlxWolfenstein97/omavt) can retint the
@@ -41,16 +41,16 @@ Stock Omarchy never sets a console font. Recent
 [archinstall](https://github.com/archlinux/archinstall) builds expose a
 **Console font** locales menu that lists every `*.gz` under
 `/usr/share/kbd/consolefonts` (default `default8x16`, and Terminus when
-`terminus-font` is around). Dumping that whole list into Style would be
+`terminus-font` is around). Dumping that whole list into the picker would be
 hundreds of codepage relics and a uselessly huge carousel.
 
 OmaTTY keeps a curated Terminus-first set, pulls `terminus-font` on install so
 every tile is a **real** mockup (no “pick blind, install later” dance), and
-applies with sudo the same way Style → Unlock / Boot Themes do.
+applies with sudo the same way Appearance → Unlock and Appearance → Extenders → Boot do.
 
 ## Goals (and honest limits)
 
-These Style plugins extend Omarchy’s theme system **without requiring theme
+These plugins extend Omarchy’s theme system **without requiring theme
 authors — or you — to ship anything extra**. Fonts come from packages on the
 machine (`kbd`, `terminus-font`); themes are not asked for font assets. The
 broader “theme every surface that accepts colour data” story and stop-line
@@ -62,10 +62,10 @@ live in [Chroma](https://github.com/AlxWolfenstein97/chroma).
 | Extreme compatibility | Works beside any Omarchy theme; pairs with [OmaVT](https://github.com/AlxWolfenstein97/omavt) for palette. |
 | Closest-to-real mockups | Actual PSF bitmaps on a top-left getty session (same script as OmaVT). Still not a live `/dev/tty` capture. |
 | Carousel-safe | Mockups are 1536×864 with ~8% side inset. Session stays top-left *inside* that margin; bigger faces crop mid-command like a real framebuffer. |
-| Curated, not exhaustive | archinstall lists every console font; Style keeps a Terminus-first set so the picker stays usable. |
-| Snappy pickers | Mockups warm in parallel across CPU cores and **skip tiles whose font / layout haven’t changed** — reopen is near-instant. On par with Omarchy’s stock Style carousels. |
+| Curated, not exhaustive | archinstall lists every console font; OmaTTY keeps a Terminus-first set so the picker stays usable. |
+| Snappy pickers | Mockups warm in parallel across CPU cores and **skip tiles whose font / layout haven’t changed** — reopen is near-instant. On par with Omarchy’s stock Appearance carousels. |
 
-### Why a Style picker for fonts?
+### Why an Appearance picker for fonts?
 
 Fonts are not theme colours — you are choosing a face/size, not syncing
 `colors.toml`. The carousel still earns its keep the same way the theme
@@ -76,7 +76,7 @@ faster than applying each one and hopping to Ctrl+Alt+F3. Pair with
 
 ## What you get
 
-- **Style → TTY Fonts** — labelled image picker (`omarchy-menu-images`).
+- **Appearance → Extenders → Font** — labelled image picker (`omarchy-menu-images`).
 - **Real PSF mockups** — top-left getty session painted with the font's own
   glyphs (not a lookalike TTF), so sizes read true before you apply.
 - **Cropped like a TTY, not Hyprland** — fixed “glass”; bigger faces fit fewer
@@ -129,9 +129,9 @@ in `~/.bashrc` that sets `STARSHIP_CONFIG` **only** when `tty` reports
 Your Wayland session is untouched; the clamp only hits the virtual console.
 
 
-## Marketplace consent (hooks & Style menu)
+## Marketplace consent (hooks & Appearance menu)
 
-Installing the plugin only drops the code. Style menu rows and theme-set hooks
+Installing the plugin only drops the code. Appearance menu rows and theme-set hooks
 edit your Omarchy config, so they stay **opt-in**.
 
 **Fast path (no prompts)** — from your home folder:
@@ -141,7 +141,7 @@ edit your Omarchy config, so they stay **opt-in**.
 ```
 
 `--yes` means: I consent — arm everything this plugin supports, skip Y/n. Interactive `./install.sh` (no `--yes`) still asks — Workshop-safe; `--yes` / arm-all are optional shortcuts.
-Style menu helper: `./tools/install-style-menu.sh --yes`.
+Appearance menu helper: `./tools/install-style-menu.sh --yes`.
 
 **Arm the whole family in one shot** (arms only what’s already installed — omit any `plugin add` you don’t want):
 
@@ -172,7 +172,7 @@ drop may fail and stay if something else still requires the package):
 Harmless sticky note at `~/.local/state/omarchy/<plugin>/uninstalled`. The next
 install (quiet or loud) uses it to clear same-session `/run` package-prompt
 stamps / shared Pillow claims, then deletes the note. Logout/reboot clears those
-stamps anyway. Style stays off after wipe because armed state is gone — not
+stamps anyway. The menu entry stays off after wipe because armed state is gone — not
 because of the stone. Normal boom-out → loud boom-in (arm-all) does **not** need
 `--purge-tombstones`.
 
@@ -199,7 +199,7 @@ omarchy plugin add https://github.com/AlxWolfenstein97/omatty.git --enable
 ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/install.sh
 ```
 
-That clones into `~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty` and arms hooks / Style after you
+That clones into `~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty` and arms hooks and the Appearance menu after you
 confirm. Skip prompts: `~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/install.sh --yes`.
 
 Or from an existing checkout:
@@ -214,7 +214,7 @@ omarchy plugin enable io.github.alxwolfenstein97.omatty
 
 1. `bin/omatty-switcher` renders PNGs into `~/.cache/omarchy/omatty/previews/`,
    busts the image-selector thumbnail cache, then opens `omarchy-menu-images`.
-2. On selection, Style launches Omarchy’s floating terminal running `omatty-set`
+2. On selection, the menu launches Omarchy’s floating terminal running `omatty-set`
    (same privilege pattern as Unlock): patches `/etc/vconsole.conf`, restarts
    `systemd-vconsole-setup`. Install / uninstall / arm-all / wipe use the same TTY.
 3. Install also drops the Starship TTY profile + bashrc snippet.
@@ -253,7 +253,7 @@ omatty install-drm
 ```sh
 omarchy plugin add https://github.com/AlxWolfenstein97/omatty.git --enable
 # install.sh TTY: pillow + terminus (scanned); optional DRM y/N (default N)
-# Style → TTY Fonts appears without a shell restart
+# Appearance → Extenders → Font appears without a shell restart
 # Pick ter-v32b → sudo terminal runs limine-mkinitcpio; Ctrl+Alt+F3 fat; reboot → LUKS/early TTY fat too
 omatty current
 omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
@@ -278,9 +278,9 @@ omatty reapply   # sudo — same helper udev uses (active VT; SDDM-safe)
 | `omarchy pkg drop terminus-font` | Optional — only if this install recorded pulling it; may fail/stay if something else still requires it. |
 
 Quiet Service install (`--quiet`): restores already-armed wiring only
-(DRM udev only if already passwordless). Deps + Style consent + DRM reapply come
+(DRM udev only if already passwordless). Deps + menu consent + DRM reapply come
 from interactive `install.sh`, `--yes --with-drm-reapply`, or family
-`arm-all-family.sh`. Menu + `rescanPlugins` so Style → TTY Fonts shows without a
+`arm-all-family.sh`. Menu + `rescanPlugins` so Appearance → Extenders → Font shows without a
 manual shell restart.
 
 **Full wipe** — one shot (`--yes` skips pkg Y/n, ledger-only drops of packages this install recorded pulling (may fail and stay if something else still needs them — e.g. Goverlay after Pillow), and removes the plugin):
@@ -291,12 +291,12 @@ manual shell restart.
 
 ## Why not every console font?
 
-archinstall’s Console font menu is exhaustive on purpose. For a Style carousel we
+archinstall’s Console font menu is exhaustive on purpose. For an Appearance carousel we
 only keep faces you can tell apart at a glance: the Arch default, two useful kbd
 fonts, and every Terminus Unicode size/weight the package ships — not a full
 archinstall clone, just the part that earns its keep. Mockups warm in parallel
 across CPU cores and **skip tiles whose font / layout haven’t changed** — same
-snappy reopen as the other Style extenders.
+snappy reopen as the other Extenders.
 
 ## Check
 
@@ -312,7 +312,7 @@ bash ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/check.sh
   theming is OmaVT’s job). Compare mockup (same stock face):
   [`preview-default8x16.png`](preview-default8x16.png). Hero:
   **Terminus 32 Bold** ([`preview.png`](preview.png)).
-- Sibling Style plugins: [OmaBoot](https://github.com/AlxWolfenstein97/omaboot),
+- Sibling extenders: [OmaBoot](https://github.com/AlxWolfenstein97/omaboot),
   [OmaVT](https://github.com/AlxWolfenstein97/omavt),
   [OmaOBS](https://github.com/AlxWolfenstein97/omaobs),
   [OmaCursor](https://github.com/AlxWolfenstein97/omacursor),
@@ -320,7 +320,7 @@ bash ~/.config/omarchy/plugins/io.github.alxwolfenstein97.omatty/check.sh
   [Chroma](https://github.com/AlxWolfenstein97/chroma).
 - [archinstall](https://github.com/archlinux/archinstall) Console font menu —
   inspiration for surfacing Terminus sizes without dumping every `*.gz`.
-- [Omarchy](https://omarchy.org/) — Style menu image picker and floating-terminal
+- [Omarchy](https://omarchy.org/) — Appearance menu image picker and floating-terminal
   sudo pattern.
 
 ## License

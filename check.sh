@@ -129,11 +129,14 @@ PY
 mkdir -p "$tmp/.config/omarchy/extensions"
 printf '{\n}\n' >"$tmp/.config/omarchy/extensions/omarchy-menu.jsonc"
 "$here/bin/omatty" install-menu >/dev/null
-grep -q 'style.tty-font' "$tmp/.config/omarchy/extensions/omarchy-menu.jsonc" && pass "menu entry" || bad "menu entry"
-grep -q 'TTY Fonts' "$tmp/.config/omarchy/extensions/omarchy-menu.jsonc" && pass "menu label" || bad "menu label"
+menu="$tmp/.config/omarchy/extensions/omarchy-menu.jsonc"
+grep -q 'appearance.extenders.font' "$menu" && pass "menu entry" || bad "menu entry"
+grep -q '"label": "Font"' "$menu" && pass "menu label" || bad "menu label"
+grep -q '"appearance.extenders"' "$menu" && pass "menu parent" || bad "menu parent"
 
 "$here/bin/omatty" uninstall-menu >/dev/null
-grep -q 'style.tty-font' "$tmp/.config/omarchy/extensions/omarchy-menu.jsonc" && bad "menu removed" || pass "menu removed"
+grep -q 'appearance.extenders.font' "$menu" && bad "menu removed" || pass "menu removed"
+grep -q '"appearance.extenders"' "$menu" && bad "menu parent removed" || pass "menu parent removed"
 grep -q '# omatty:start' "$tmp/.bashrc" && bad "bashrc cleaned" || pass "bashrc cleaned"
 
 if command -v omarchy >/dev/null 2>&1; then
