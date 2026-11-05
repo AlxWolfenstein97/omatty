@@ -881,7 +881,9 @@ def generate_all_previews() -> list[Path]:
     if not dirty:
         return out
     _preload_render()
-    workers = max(1, min(len(dirty), os.cpu_count() or 2))
+    # Respect CPU affinity (containers, taskset); fall back on older Pythons.
+    cpus = getattr(os, "process_cpu_count", os.cpu_count)() or 2
+    workers = max(1, min(len(dirty), cpus))
     with _preview_pool(workers) as pool:
         futures = {pool.submit(_warm_one_preview, font_id): font_id for font_id in dirty}
         for fut in as_completed(futures):
