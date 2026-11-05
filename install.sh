@@ -376,7 +376,11 @@ ORPHANSCRUB
   )
   [[ $scrub_out == *scrubbed-orphan-style-menus* ]] && scrubbed=1
   write_menu=1
-  if (( quiet )) && [[ -f $menu_file ]] && grep -qF '// omatty:start' "$menu_file"; then
+  # A pre-4.5 install still carries its old style.* row inside the marker
+  # block, so marker presence alone is not enough: rewrite once after an
+  # upgrade until the new Appearance → Extenders key is there.
+  if (( quiet )) && [[ -f $menu_file ]] && grep -qF '// omatty:start' "$menu_file" \
+     && grep -qF '"appearance.extenders.font"' "$menu_file"; then
     write_menu=0
   fi
   if (( write_menu )); then
