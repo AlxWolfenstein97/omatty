@@ -510,7 +510,7 @@ def current_font_id() -> str | None:
     if not match:
         return None
     raw = match.group(1).strip().strip('"').strip("'")
-    # FONT may be a path or a stem; normalise to curated id when possible.
+    # FONT may be a path or a stem; normalize to curated id when possible.
     stem = Path(raw).name
     stem = re.sub(r"\.(psfu?|gz)$", "", stem)
     stem = re.sub(r"\.(psfu?)$", "", stem)
@@ -532,7 +532,7 @@ def pretty_label(font_id: str) -> str:
 def theme_colors() -> dict[str, str]:
     """Stock VGA console palette — fonts only; leave theming to OmaVT.
 
-    Mockups stay on the kernel default 16-colour set so the carousel compares
+    Mockups stay on the kernel default 16-color set so the carousel compares
     faces, not the active desktop theme. Pair with OmaVT when you want the TTY
     palette to follow `colors.toml`.
     """

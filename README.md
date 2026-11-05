@@ -35,7 +35,7 @@ SDDM-safe. Brief tiny flash mid-modeset is still possible.
 **Pairing:** [OmaVT](https://github.com/AlxWolfenstein97/omavt) can retint the
 console palette live when you hop to a TTY (kernel `vt.default_*` via a
 limine-entry-tool drop-in — apply is a bit slow because it rebuilds Limine
-entries for the *next* cold boot as well). Fat face here, theme colours there.
+entries for the *next* cold boot as well). Fat face here, theme colors there.
 
 Stock Omarchy never sets a console font. Recent
 [archinstall](https://github.com/archlinux/archinstall) builds expose a
@@ -53,7 +53,7 @@ applies with sudo the same way Appearance → Unlock and Appearance → Extender
 These plugins extend Omarchy’s theme system **without requiring theme
 authors — or you — to ship anything extra**. Fonts come from packages on the
 machine (`kbd`, `terminus-font`); themes are not asked for font assets. The
-broader “theme every surface that accepts colour data” story and stop-line
+broader “theme every surface that accepts color data” story and stop-line
 live in [Chroma](https://github.com/AlxWolfenstein97/chroma).
 
 | Goal | What that means here |
@@ -67,7 +67,7 @@ live in [Chroma](https://github.com/AlxWolfenstein97/chroma).
 
 ### Why an Appearance picker for fonts?
 
-Fonts are not theme colours — you are choosing a face/size, not syncing
+Fonts are not theme colors — you are choosing a face/size, not syncing
 `colors.toml`. The carousel still earns its keep the same way the theme
 plugins do: mockups let you compare Terminus sizes across the curated set
 faster than applying each one and hopping to Ctrl+Alt+F3. Pair with
@@ -99,7 +99,7 @@ console glyph** from the PSF you are picking. Layout from a QEMU default-TTY
 capture (nested Omarchy, SDDM off → **tty1**; no GPU passthrough so F-keys stay
 on the host). Paint stays on the **stock VGA Default** palette so the carousel
 compares faces, not themes — [OmaVT](https://github.com/AlxWolfenstein97/omavt)
-owns `colors.toml` → VT colour.
+owns `colors.toml` → VT color.
 
 **Compare — real default TTY vs `default8x16` mockup (same face, VGA Default):**
 
