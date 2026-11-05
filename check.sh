@@ -130,12 +130,12 @@ mkdir -p "$tmp/.config/omarchy/extensions"
 printf '{\n}\n' >"$tmp/.config/omarchy/extensions/omarchy-menu.jsonc"
 "$here/bin/omatty" install-menu >/dev/null
 menu="$tmp/.config/omarchy/extensions/omarchy-menu.jsonc"
-grep -q 'appearance.extenders.vtfont' "$menu" && pass "menu entry" || bad "menu entry"
-grep -q '"label": "VTFont"' "$menu" && pass "menu label" || bad "menu label"
+grep -q 'appearance.extenders.ttyfont' "$menu" && pass "menu entry" || bad "menu entry"
+grep -q '"label": "TTYFont"' "$menu" && pass "menu label" || bad "menu label"
 grep -q '"appearance.extenders"' "$menu" && pass "menu parent" || bad "menu parent"
 
 "$here/bin/omatty" uninstall-menu >/dev/null
-grep -q 'appearance.extenders.vtfont' "$menu" && bad "menu removed" || pass "menu removed"
+grep -q 'appearance.extenders.ttyfont' "$menu" && bad "menu removed" || pass "menu removed"
 grep -q '"appearance.extenders"' "$menu" && bad "menu parent removed" || pass "menu parent removed"
 grep -q '# omatty:start' "$tmp/.bashrc" && bad "bashrc cleaned" || pass "bashrc cleaned"
 

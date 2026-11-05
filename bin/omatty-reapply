@@ -4,7 +4,7 @@
 # Why this exists: after GPU passthrough returns the card, fbcon often resets
 # to a tiny default *before* SDDM/Hypr. systemd-vconsole-setup frequently
 # refuses ("All allocated virtual consoles are busy"). Direct setfont still
-# works — Style → TTY Fonts already does that. This helper is the same poke,
+# works — Appearance → Extenders → TTYFont already does that. This helper is the same poke,
 # for udev (DRM card add) and manual `omatty reapply`.
 #
 # Default: setfont on the *active* VT only. A chvt sweep through tty1–6 makes
